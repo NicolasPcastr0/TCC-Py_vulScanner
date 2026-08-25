@@ -36,3 +36,5 @@ for index, finding in enumerate(findings, start=1):
     print(f"Severidade: {finding.severity}")
     print(f"Evidência: {finding.evidence}")
     print(f"Recomendação: {finding.recommendation}")
+
+'''scanner faz toda a parte de execução dos testes, chamando o módulo run_brute_force e passando os parâmetros necessários.'''
