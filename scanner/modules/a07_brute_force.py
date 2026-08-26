@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from scanner.core.finding import Finding
+from scanner.utils.dvwa import create_dvwa_session
 
 
 def login_dvwa(base_url: str, username: str, password: str):
@@ -83,8 +84,7 @@ def test_brute_force(
             timeout=10
         )
 
-        print(f"\nSenha testada: {password}")
-        print(f"Status HTTP: {response.status_code}")
+        print(f"[A07] Testando credencial: '{password}' (Status HTTP: {response.status_code})")
 
         # Sessão perdida
         if "Login :: Damn Vulnerable Web Application" in response.text:
@@ -95,19 +95,18 @@ def test_brute_force(
                 status="error",
                 severity="medium",
                 evidence=(
-                    "A sessão de autenticação foi perdida "
+                    "A sessão de autenticação foi encerrada ou perdida "
                     "durante a execução do teste."
                 ),
                 recommendation=(
-                    "Verificar o gerenciamento da sessão "
-                    "antes da execução dos testes."
+                    "Verificar a estabilidade e a persistência da sessão "
+                    "antes da execução de novos testes."
                 )
             )
 
         # Evidência positiva de sucesso
         if "Welcome to the password protected area" in response.text:
-
-            print("Possível credencial válida encontrada.")
+            print(f"[A07] Credencial válida identificada com sucesso: '{password}'")
 
             return Finding(
                 category="A07",
@@ -116,13 +115,14 @@ def test_brute_force(
                 status="detected",
                 severity="medium",
                 evidence=(
-                    "Uma credencial válida foi identificada "
-                    "durante tentativas automatizadas."
+                    f"Uma credencial válida foi identificada com sucesso "
+                    f"durante tentativas automatizadas de força bruta para o usuário '{username}'."
                 ),
                 recommendation=(
-                    "Implementar mecanismos de proteção contra "
-                    "tentativas repetidas de autenticação, como "
-                    "rate limiting e bloqueio temporário."
+                    "Implementar mecanismos de proteção contra ataques de força bruta, "
+                    "como limitação de taxa de requisições (rate limiting), bloqueio "
+                    "temporário de contas após tentativas inválidas consecutivas e "
+                    "autenticação multifator (MFA)."
                 )
             )
 
@@ -134,12 +134,12 @@ def test_brute_force(
         status="not_detected",
         severity="medium",
         evidence=(
-            "Nenhuma das credenciais utilizadas no conjunto "
-            "de teste foi aceita pela aplicação."
+            "Nenhuma das credenciais testadas foi aceita pela aplicação "
+            "no conjunto de palavras (wordlist) utilizado."
         ),
         recommendation=(
-            "Manter mecanismos de proteção contra tentativas "
-            "automatizadas de autenticação."
+            "Manter políticas rigorosas de senhas fortes e mecanismos ativos "
+            "de proteção contra tentativas automatizadas."
         )
     )
 
@@ -173,8 +173,7 @@ def test_rate_limiting(
 
         responses.append(response)
 
-        print(f"\nTeste de proteção: {password}")
-        print(f"Status HTTP: {response.status_code}")
+        print(f"[A07] Testando proteção com credencial inválida: '{password}' (Status HTTP: {response.status_code})")
 
         # Rate limiting
         if response.status_code == 429:
@@ -185,13 +184,13 @@ def test_rate_limiting(
                 status="not_detected",
                 severity="medium",
                 evidence=(
-                    "A aplicação retornou HTTP 429 após "
-                    "múltiplas tentativas inválidas, indicando "
-                    "um mecanismo de rate limiting."
+                    "A aplicação retornou HTTP 429 (Too Many Requests) após "
+                    "múltiplas tentativas inválidas consecutivas, indicando a "
+                    "presença de mecanismo de rate limiting."
                 ),
                 recommendation=(
-                    "Manter e monitorar o mecanismo de "
-                    "limitação de tentativas."
+                    "Manter e auditar periodicamente as regras e os limites "
+                    "configurados para o rate limiting."
                 )
             )
 
@@ -204,13 +203,13 @@ def test_rate_limiting(
                 status="not_detected",
                 severity="medium",
                 evidence=(
-                    "A aplicação retornou HTTP 403 durante "
-                    "as tentativas consecutivas, indicando "
-                    "possível mecanismo de bloqueio."
+                    "A aplicação retornou HTTP 403 (Forbidden) durante as "
+                    "tentativas consecutivas, indicando bloqueio temporário "
+                    "ou permanente por política de segurança."
                 ),
                 recommendation=(
-                    "Manter o mecanismo de bloqueio e "
-                    "monitorar tentativas suspeitas."
+                    "Manter o mecanismo de bloqueio e monitorar incidentes "
+                    "para evitar falsos positivos com usuários legítimos."
                 )
             )
 
@@ -228,15 +227,14 @@ def test_rate_limiting(
             status="detected",
             severity="medium",
             evidence=(
-                f"Foram realizadas {len(invalid_passwords)} "
-                "tentativas inválidas consecutivas e a aplicação "
-                "continuou respondendo normalmente, sem apresentar "
-                "sinais observáveis de bloqueio ou rate limiting."
+                f"Foram realizadas {len(invalid_passwords)} tentativas inválidas consecutivas "
+                "e a aplicação continuou respondendo normalmente com HTTP 200, sem apresentar "
+                "mecanismos observáveis de bloqueio, atraso progressivo ou limitação de taxa (rate limiting)."
             ),
             recommendation=(
-                "Implementar rate limiting, bloqueio temporário "
-                "ou outro mecanismo de proteção contra tentativas "
-                "automatizadas de autenticação."
+                "Implementar controles defensivos contra tentativas automatizadas, "
+                "tais como limitação de taxa de requisições (rate limiting), atraso progressivo "
+                "(tarpitting), bloqueio temporário de conta/IP ou desafio CAPTCHA."
             )
         )
 
@@ -247,13 +245,12 @@ def test_rate_limiting(
         status="not_detected",
         severity="medium",
         evidence=(
-            "O comportamento da aplicação mudou durante "
-            "as tentativas consecutivas, indicando possível "
-            "mecanismo de proteção."
+            "O comportamento da aplicação variou durante as tentativas "
+            "consecutivas, indicando provável mecanismo defensivo ativo."
         ),
         recommendation=(
-            "Avaliar e manter os mecanismos de proteção "
-            "contra tentativas automatizadas."
+            "Avaliar a eficácia das regras de proteção e manter o monitoramento "
+            "ativo de requisições de autenticação."
         )
     )
 
@@ -261,7 +258,9 @@ def test_rate_limiting(
 def run_brute_force(
     base_url: str,
     username: str,
-    passwords: list[str]
+    passwords: list[str],
+    session=None,
+    **kwargs
 ):
     """
     Executa todos os testes relacionados ao A07.
@@ -271,17 +270,21 @@ def run_brute_force(
         f"{base_url}/vulnerabilities/brute/"
     )
 
+    print("\n--- Executando Testes de Falhas de Autenticação (A07) ---")
+
     # ==========================================
     # 1. AUTENTICAÇÃO
     # ==========================================
 
-    session = login_dvwa(
-        base_url=base_url,
-        username=username,
-        password="password"
-    )
-
-    print("Sessão autenticada com sucesso.")
+    if session is None:
+        session = create_dvwa_session(
+            base_url=base_url,
+            username=username,
+            password="password"
+        )
+        print("[A07] Sessão autenticada criada com sucesso no DVWA.")
+    else:
+        print("[A07] Reutilizando sessão autenticada existente.")
 
     # ==========================================
     # 2. TESTE DE BRUTE FORCE
