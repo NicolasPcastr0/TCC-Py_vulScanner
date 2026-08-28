@@ -1,5 +1,6 @@
 import sys
 from scanner.core.scanner import Scanner
+from scanner.modules.a03_command_injection import run_command_injection
 from scanner.modules.a03_sql_injection import run_sql_injection
 from scanner.modules.a03_xss import run_xss
 from scanner.modules.a07_brute_force import run_brute_force
@@ -54,6 +55,7 @@ scanner = Scanner()
 scanner.register_module(run_brute_force)
 scanner.register_module(run_sql_injection)
 scanner.register_module(run_xss)
+scanner.register_module(run_command_injection)
 
 # 4. Execução dos testes
 findings = scanner.run(
