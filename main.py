@@ -1,6 +1,7 @@
 import sys
 from scanner.core.scanner import Scanner
 from scanner.modules.a03_sql_injection import run_sql_injection
+from scanner.modules.a03_xss import run_xss
 from scanner.modules.a07_brute_force import run_brute_force
 from scanner.utils.dvwa import create_dvwa_session
 
@@ -52,6 +53,7 @@ scanner = Scanner()
 # 3. Registro dos módulos de teste (OWASP Top 10)
 scanner.register_module(run_brute_force)
 scanner.register_module(run_sql_injection)
+scanner.register_module(run_xss)
 
 # 4. Execução dos testes
 findings = scanner.run(
