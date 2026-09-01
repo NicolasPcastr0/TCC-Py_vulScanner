@@ -27,11 +27,13 @@ def _load_env_file():
 class AIInterpreter:
     """
     Componente responsável pela interpretação inteligente de achados do SecureScan.
-    Suporta Google Gemini API, OpenAI API e Modo de Demonstração / Fallback.
+    Suporta OpenRouter (Llama 3.3, DeepSeek, Gemini Free), Google Gemini API nativo,
+    OpenAI API e Modo de Demonstração / Fallback.
     """
 
     def __init__(self):
         _load_env_file()
+        self.openrouter_key = os.getenv("OPENROUTER_API_KEY")
         self.gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         self.openai_key = os.getenv("OPENAI_API_KEY")
 
@@ -44,27 +46,85 @@ class AIInterpreter:
 
         prompt = build_interpretation_prompt(findings)
 
-        # 1. Tenta utilizar a API do Google Gemini
+        # 1. Tenta utilizar o OpenRouter (Modelos gratuitos: Llama 3.3, DeepSeek, Gemini)
+        if self.openrouter_key:
+            try:
+                print("[*] Consultando camada de IA via OpenRouter...")
+                return self._call_openrouter(prompt)
+            except Exception as e:
+                print(f"[!] Erro no OpenRouter: {e}. Tentando outros provedores...")
+
+        # 2. Tenta utilizar a API nativa do Google Gemini
         if self.gemini_key:
             try:
+                print("[*] Consultando camada de IA via Google Gemini API...")
                 return self._call_gemini(prompt)
             except Exception as e:
-                print(f"[!] Erro ao consultar a API do Gemini: {e}. Alternando para modo fallback...")
+                print(f"[!] Erro no Gemini: {e}. Tentando fallback...")
 
-        # 2. Tenta utilizar a API da OpenAI
+        # 3. Tenta utilizar a API nativa da OpenAI
         if self.openai_key:
             try:
+                print("[*] Consultando camada de IA via OpenAI API...")
                 return self._call_openai(prompt)
             except Exception as e:
-                print(f"[!] Erro ao consultar a API da OpenAI: {e}. Alternando para modo fallback...")
+                print(f"[!] Erro na OpenAI: {e}. Tentando fallback...")
 
-        # 3. Modo de Demonstração / Fallback Acadêmico caso nenhuma chave esteja configurada
+        # 4. Modo de Demonstração / Fallback Acadêmico caso nenhuma chave esteja disponível
         return self._generate_fallback_report(findings)
+
+    def _call_openrouter(self, prompt: str) -> str:
+        """
+        Executa chamada à API do OpenRouter com fallback automático entre modelos gratuitos de ponta.
+        """
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.openrouter_key}",
+            "HTTP-Referer": "https://github.com/NicolasPcastr0/TCC-Py_vulScanner",
+            "X-Title": "SecureScan - TCC Vulnerability Scanner",
+            "Content-Type": "application/json"
+        }
+
+        # Modelos gratuitos ativos e com alta disponibilidade no OpenRouter
+        models = [
+            "nvidia/nemotron-3.5-lightning:free",
+            "minimax/minimax-m3:free",
+            "inclusionai/ling-3.0-flash-fin:free",
+            "nvidia/nemotron-3-super-120b-a12b:free",
+            "google/gemma-4-31b-it:free"
+        ]
+
+        last_error = None
+        for model in models:
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.2
+            }
+
+            try:
+                response = requests.post(url, json=payload, headers=headers, timeout=25)
+                if response.status_code == 200:
+                    data = response.json()
+                    choices = data.get("choices", [])
+                    if choices:
+                        content = choices[0].get("message", {}).get("content", "").strip()
+                        if content:
+                            print(f"[+] Análise gerada com sucesso via OpenRouter ({model})!\n")
+                            return content
+
+                last_error = f"Modelo OpenRouter '{model}' retornou HTTP {response.status_code}: {response.text}"
+            except requests.RequestException as e:
+                last_error = f"Conexão/Timeout no modelo OpenRouter '{model}': {e}"
+
+        raise RuntimeError(f"Todos os modelos do OpenRouter falharam. Último erro: {last_error}")
 
     def _call_gemini(self, prompt: str) -> str:
         """
-        Executa chamada à API REST do Google Gemini com fallback automático
-        entre modelos disponíveis caso haja sobrecarga temporária (HTTP 503/429).
+        Executa chamada à API REST do Google Gemini com fallback entre modelos.
         """
         candidate_models = [
             "gemini-2.5-flash-lite",
@@ -91,13 +151,14 @@ class AIInterpreter:
         for model_name in candidate_models:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.gemini_key}"
             try:
-                response = requests.post(url, json=payload, headers=headers, timeout=20)
+                response = requests.post(url, json=payload, headers=headers, timeout=15)
                 if response.status_code == 200:
                     data = response.json()
                     candidates = data.get("candidates", [])
                     if candidates:
                         parts = candidates[0].get("content", {}).get("parts", [])
                         if parts:
+                            print(f"[+] Análise gerada com sucesso via Gemini ({model_name})!\n")
                             return parts[0].get("text", "").strip()
 
                 last_error = f"Modelo '{model_name}' retornou HTTP {response.status_code}: {response.text}"
@@ -124,13 +185,14 @@ class AIInterpreter:
             "temperature": 0.2
         }
 
-        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        response = requests.post(url, json=payload, headers=headers, timeout=20)
         if response.status_code != 200:
             raise RuntimeError(f"HTTP {response.status_code}: {response.text}")
 
         data = response.json()
         choices = data.get("choices", [])
         if choices:
+            print("[+] Análise gerada com sucesso via OpenAI (gpt-4o-mini)!\n")
             return choices[0].get("message", {}).get("content", "").strip()
 
         raise RuntimeError("Resposta vazia retornada pela API da OpenAI.")
@@ -144,7 +206,7 @@ class AIInterpreter:
         high_count = sum(1 for f in findings if f.severity.lower() == "high")
         medium_count = sum(1 for f in findings if f.severity.lower() == "medium")
 
-        report = f"""[Modo de Demonstração da Camada de IA - Configure GEMINI_API_KEY no arquivo .env para análise em tempo real]
+        report = f"""[Modo de Demonstração da Camada de IA - Configure OPENROUTER_API_KEY ou GEMINI_API_KEY no arquivo .env para análise em tempo real]
 
 ### 1. Visão Geral e Postura de Segurança
 - **Nível de Risco Geral:** CRÍTICO
