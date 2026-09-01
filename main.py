@@ -1,4 +1,5 @@
 import sys
+from scanner.ai.interpreter import AIInterpreter
 from scanner.core.scanner import Scanner
 from scanner.modules.a03_command_injection import run_command_injection
 from scanner.modules.a03_sql_injection import run_sql_injection
@@ -29,9 +30,9 @@ passwords = [
     "password"
 ]
 
-print("=" * 55)
-print("                 SECURESCAN INICIADO                 ")
-print("=" * 55)
+print("=" * 60)
+print("                    SECURESCAN INICIADO                     ")
+print("=" * 60)
 
 # 1. Autenticação centralizada e gestão de sessão no alvo
 try:
@@ -44,9 +45,12 @@ try:
     )
     print(f"[+] Sessão iniciada com sucesso. Nível de segurança: {security_level.upper()}\n")
 except Exception as e:
-    print(f"[-] Erro ao inicializar sessão com o alvo: {e}")
-    print("[-] Verifique se a VM/Docker do DVWA está em execução.")
-    shared_session = None
+    print(f"\n[-] Erro ao conectar com o alvo ({base_url}): {e}")
+    print("[-] DICA: Certifique-se de que a VM Ubuntu com o container Docker do DVWA está ligada.")
+    print("\n" + "=" * 60)
+    print("              SCAN INTERROMPIDO (ALVO INACESSÍVEL)          ")
+    print("=" * 60)
+    sys.exit(1)
 
 # 2. Inicialização do orquestrador
 scanner = Scanner()
@@ -57,7 +61,7 @@ scanner.register_module(run_sql_injection)
 scanner.register_module(run_xss)
 scanner.register_module(run_command_injection)
 
-# 4. Execução dos testes
+# 4. Execução dos testes determinísticos
 findings = scanner.run(
     base_url=base_url,
     username=username,
@@ -66,9 +70,9 @@ findings = scanner.run(
 )
 
 # 5. Apresentação estruturada dos resultados (Findings)
-print("\n" + "=" * 55)
-print("             RELATÓRIO DE VULNERABILIDADES           ")
-print("=" * 55)
+print("\n" + "=" * 60)
+print("                RELATÓRIO DE VULNERABILIDADES               ")
+print("=" * 60)
 
 if not findings:
     print("\nNenhum achado gerado durante o scan.")
@@ -83,6 +87,17 @@ else:
         print(f"Evidência:    {finding.evidence}")
         print(f"Recomendação: {finding.recommendation}")
 
-print("\n" + "=" * 55)
-print("                     SCAN CONCLUÍDO                  ")
-print("=" * 55)
+# 6. Camada de Inteligência Artificial: Interpretação e Contextualização
+print("\n" + "=" * 60)
+print("          INTERPRETAÇÃO E ANÁLISE EXECUTIVA (IA)            ")
+print("=" * 60)
+print("\n[*] Processando achados através da camada de Inteligência Artificial...\n")
+
+ai_interpreter = AIInterpreter()
+ai_report = ai_interpreter.interpret_findings(findings)
+
+print(ai_report)
+
+print("\n" + "=" * 60)
+print("                        SCAN CONCLUÍDO                      ")
+print("=" * 60)

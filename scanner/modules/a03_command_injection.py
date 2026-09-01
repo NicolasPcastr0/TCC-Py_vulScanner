@@ -28,7 +28,7 @@ def test_command_injection(
         }
 
         try:
-            response = session.post(exec_url, data=data, timeout=10)
+            response = session.post(exec_url, data=data, timeout=20)
         except requests.RequestException as e:
             return Finding(
                 category="A03",
