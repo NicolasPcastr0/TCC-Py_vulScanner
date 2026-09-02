@@ -22,5 +22,9 @@ tempCodeRunnerFile.py
 .DS_Store
 Thumbs.db
 
-# Configurações de ambiente / segredos futuros
+# Configurações de ambiente / segredos locais
 .env
+
+# Relatórios gerados em tempo de execução
+reports/*
+!reports/.gitkeep

@@ -2,6 +2,7 @@ import sys
 import textwrap
 from scanner.ai.interpreter import AIInterpreter
 from scanner.core.scanner import Scanner
+from scanner.reports import ReportExporter
 from scanner.modules.a03_command_injection import run_command_injection
 from scanner.modules.a03_sql_injection import run_sql_injection
 from scanner.modules.a03_xss import run_xss
@@ -96,9 +97,9 @@ else:
     print("\n" + "-" * 70)
 
 # 6. Camada de Inteligência Artificial: Interpretação e Contextualização
-print("\n" + "=" * 60)
+print("\n" + "=" * 70)
 print("          INTERPRETAÇÃO E ANÁLISE EXECUTIVA (IA)            ")
-print("=" * 60)
+print("=" * 70)
 print("\n[*] Processando achados através da camada de Inteligência Artificial...\n")
 
 ai_interpreter = AIInterpreter()
@@ -106,6 +107,25 @@ ai_report = ai_interpreter.interpret_findings(findings)
 
 print(ai_report)
 
-print("\n" + "=" * 60)
+# 7. Exportação Automatizada de Relatórios (HTML, Markdown e JSON)
+print("\n" + "=" * 70)
+print("                 EXPORTAÇÃO DE RELATÓRIOS                   ")
+print("=" * 70)
+print("[*] Gerando relatórios consolidados nos formatos HTML, Markdown e JSON...")
+
+exporter = ReportExporter(output_dir="reports")
+exported_files = exporter.export_all(
+    target_url=base_url,
+    security_level=security_level,
+    findings=findings,
+    ai_report=ai_report
+)
+
+print(f"\n[+] Relatório HTML (Visual/Interativo): {exported_files['html']}")
+print(f"[+] Relatório Markdown (Documentação):  {exported_files['markdown']}")
+print(f"[+] Relatório JSON (Dados Estruturados): {exported_files['json']}")
+print("\n[i] DICA: Abra o arquivo .html no navegador ou pressione Ctrl+P para salvar em PDF!")
+
+print("\n" + "=" * 70)
 print("                        SCAN CONCLUÍDO                      ")
-print("=" * 60)
+print("=" * 70)
