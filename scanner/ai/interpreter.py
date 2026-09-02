@@ -85,13 +85,12 @@ class AIInterpreter:
             "Content-Type": "application/json"
         }
 
-        # Modelos gratuitos ativos e com alta disponibilidade no OpenRouter
+        # Modelos gratuitos robustos e com excelente suporte a língua portuguesa
         models = [
-            "nvidia/nemotron-3.5-lightning:free",
             "minimax/minimax-m3:free",
-            "inclusionai/ling-3.0-flash-fin:free",
+            "google/gemma-4-31b-it:free",
             "nvidia/nemotron-3-super-120b-a12b:free",
-            "google/gemma-4-31b-it:free"
+            "inclusionai/ling-3.0-flash-fin:free",
         ]
 
         last_error = None
@@ -102,17 +101,19 @@ class AIInterpreter:
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": prompt}
                 ],
-                "temperature": 0.2
+                "temperature": 0.3,
+                "max_tokens": 3000
             }
 
             try:
-                response = requests.post(url, json=payload, headers=headers, timeout=25)
+                response = requests.post(url, json=payload, headers=headers, timeout=35)
                 if response.status_code == 200:
                     data = response.json()
                     choices = data.get("choices", [])
                     if choices:
                         content = choices[0].get("message", {}).get("content", "").strip()
-                        if content:
+                        # Validação de integridade: garante que a resposta é completa e não degenerou
+                        if content and len(content) > 350 and "não não não" not in content:
                             print(f"[+] Análise gerada com sucesso via OpenRouter ({model})!\n")
                             return content
 

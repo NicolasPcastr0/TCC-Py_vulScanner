@@ -1,4 +1,5 @@
 import sys
+import textwrap
 from scanner.ai.interpreter import AIInterpreter
 from scanner.core.scanner import Scanner
 from scanner.modules.a03_command_injection import run_command_injection
@@ -20,7 +21,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
 base_url = "http://192.168.100.165"
 username = "admin"
 password = "password"
-security_level = "low"
+security_level = "medium"
 
 # Wordlist para testes de força bruta (A07)
 passwords = [
@@ -70,22 +71,29 @@ findings = scanner.run(
 )
 
 # 5. Apresentação estruturada dos resultados (Findings)
-print("\n" + "=" * 60)
-print("                RELATÓRIO DE VULNERABILIDADES               ")
-print("=" * 60)
+print("\n" + "=" * 70)
+print("                    RELATÓRIO DE VULNERABILIDADES               ")
+print("=" * 70)
 
 if not findings:
     print("\nNenhum achado gerado durante o scan.")
 else:
     for index, finding in enumerate(findings, start=1):
-        print(f"\n--- Finding {index} ---")
-        print(f"Categoria:    {finding.category}")
-        print(f"Nome:         {finding.name}")
-        print(f"Teste:        {finding.test}")
-        print(f"Status:       {finding.status.upper()}")
-        print(f"Severidade:   {finding.severity.upper()}")
-        print(f"Evidência:    {finding.evidence}")
-        print(f"Recomendação: {finding.recommendation}")
+        print("\n" + "-" * 70)
+        print(f" Achado #{index}: {finding.test.upper()} [{finding.severity.upper()}]")
+        print("-" * 70)
+        print(f" Categoria OWASP:  {finding.category} - {finding.name}")
+        print(f" Status:           {finding.status.upper()}")
+        print(f" Severidade:       {finding.severity.upper()}")
+        
+        print("\n [Evidência Técnica]:")
+        wrapped_evidence = textwrap.fill(finding.evidence, width=68, initial_indent="   ", subsequent_indent="   ")
+        print(wrapped_evidence)
+        
+        print("\n [Recomendação de Defesa]:")
+        wrapped_rec = textwrap.fill(finding.recommendation, width=68, initial_indent="   ", subsequent_indent="   ")
+        print(wrapped_rec)
+    print("\n" + "-" * 70)
 
 # 6. Camada de Inteligência Artificial: Interpretação e Contextualização
 print("\n" + "=" * 60)

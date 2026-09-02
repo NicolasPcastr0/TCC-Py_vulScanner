@@ -26,6 +26,29 @@ SQL_ERROR_SIGNATURES = [
 ]
 
 
+def _send_sqli_probe(session: requests.Session, sqli_url: str, payload: str) -> requests.Response:
+    """
+    Envia o payload de teste testando tanto requisições GET quanto POST
+    para suportar diferentes níveis de segurança do DVWA (Low e Medium).
+    """
+    params = {"id": payload, "Submit": "Submit"}
+    
+    # 1. Tenta via GET (padrão Low)
+    try:
+        resp_get = session.get(sqli_url, params=params, timeout=10)
+        # Se encontrou erro SQL ou múltiplos registros via GET, retorna
+        for sig in SQL_ERROR_SIGNATURES:
+            if sig.search(resp_get.text):
+                return resp_get
+        if "First name:" in resp_get.text or "<pre>" in resp_get.text:
+            return resp_get
+    except requests.RequestException:
+        pass
+
+    # 2. Tenta via POST (padrão Medium)
+    return session.post(sqli_url, data=params, timeout=10)
+
+
 def test_error_based_sqli(
     session: requests.Session,
     sqli_url: str
@@ -34,16 +57,11 @@ def test_error_based_sqli(
     Testa se a aplicação é vulnerável a SQL Injection baseado em erros (Error-based).
     Injeta caracteres de escape sintático e analisa se mensagens de erro do SGBD vazam na resposta.
     """
-    payloads = ["'", "1'", "1' OR '1'='1", "admin'--"]
+    payloads = ["'", "1'", "1' OR '1'='1", "1 OR 1=1", "admin'--"]
 
     for payload in payloads:
-        params = {
-            "id": payload,
-            "Submit": "Submit"
-        }
-
         try:
-            response = session.get(sqli_url, params=params, timeout=10)
+            response = _send_sqli_probe(session, sqli_url, payload)
         except requests.RequestException as e:
             return Finding(
                 category="A03",
@@ -104,25 +122,57 @@ def test_boolean_based_sqli(
     """
     Testa se a aplicação é vulnerável a SQL Injection baseado em lógica booleana/tautologia.
     Compara o comportamento da aplicação entre uma consulta legítima (id=1),
-    uma injeção tautológica verdadeira (1' OR '1'='1) e uma injeção falsa (1' AND '1'='2).
+    injeções tautológicas (1' OR '1'='1 e 1 OR 1=1) e injeções falsas (1' AND '1'='2 e 1 AND 1=2).
     """
     try:
         # 1. Linha de base legítima
-        baseline_resp = session.get(sqli_url, params={"id": "1", "Submit": "Submit"}, timeout=10)
+        baseline_resp = _send_sqli_probe(session, sqli_url, "1")
         soup_base = BeautifulSoup(baseline_resp.text, "html.parser")
         baseline_results = len(soup_base.find_all("pre"))
 
-        # 2. Injeção Tautológica (Verdadeira)
-        tautology_payload = "1' OR '1'='1"
-        tautology_resp = session.get(sqli_url, params={"id": tautology_payload, "Submit": "Submit"}, timeout=10)
-        soup_tautology = BeautifulSoup(tautology_resp.text, "html.parser")
-        tautology_results = len(soup_tautology.find_all("pre"))
+        # Pares de teste (Tautologia Verdadeira vs Contradição Falsa)
+        # 1' OR '1'='1 (para campos entre aspas - Low) e 1 OR 1=1 (para campos numéricos sem aspas - Medium)
+        test_pairs = [
+            ("1' OR '1'='1", "1' AND '1'='2"),
+            ("1 OR 1=1", "1 AND 1=2")
+        ]
 
-        # 3. Injeção Falsa / Contraditória
-        false_payload = "1' AND '1'='2"
-        false_resp = session.get(sqli_url, params={"id": false_payload, "Submit": "Submit"}, timeout=10)
-        soup_false = BeautifulSoup(false_resp.text, "html.parser")
-        false_results = len(soup_false.find_all("pre"))
+        for tautology_payload, false_payload in test_pairs:
+            # 2. Injeção Tautológica (Verdadeira)
+            tautology_resp = _send_sqli_probe(session, sqli_url, tautology_payload)
+            soup_tautology = BeautifulSoup(tautology_resp.text, "html.parser")
+            tautology_results = len(soup_tautology.find_all("pre"))
+
+            # 3. Injeção Falsa / Contraditória
+            false_resp = _send_sqli_probe(session, sqli_url, false_payload)
+            soup_false = BeautifulSoup(false_resp.text, "html.parser")
+            false_results = len(soup_false.find_all("pre"))
+
+            print(f"[A03] Teste Booleano ({tautology_payload}) - Base: {baseline_results}, Tautologia: {tautology_results}, Falso: {false_results}")
+
+            if tautology_results > baseline_results:
+                if tautology_payload == "1 OR 1=1":
+                    bypass_info = "A injeção explorou a ausência de aspas em campo numérico (ex: WHERE user_id = $id), contornando com sucesso a função mysqli_real_escape_string(). "
+                else:
+                    bypass_info = "A injeção explorou a concatenação direta de dados na consulta SQL. "
+
+                return Finding(
+                    category="A03",
+                    name="Injection",
+                    test="SQL Injection (Boolean-based)",
+                    status="detected",
+                    severity="critical",
+                    evidence=(
+                        f"A injeção lógica '{tautology_payload}' alterou a semântica da consulta no banco de dados. "
+                        f"{bypass_info}A consulta maliciosa retornou {tautology_results} registros, enquanto a consulta legítima "
+                        f"de referência retornou apenas {baseline_results} (a injeção contraditória '{false_payload}' retornou "
+                        f"{false_results} registros, comprovando controle sobre a cláusula WHERE)."
+                    ),
+                    recommendation=(
+                        "Implementar imediatamente consultas parametrizadas (Prepared Statements com PDO ou MySQLi). "
+                        "Nunca concatenar dados de entrada de usuários diretamente em strings de comando SQL."
+                    )
+                )
 
     except requests.RequestException as e:
         return Finding(
@@ -133,29 +183,6 @@ def test_boolean_based_sqli(
             severity="critical",
             evidence=f"Falha de comunicação durante o teste: {e}",
             recommendation="Verificar a conectividade e a disponibilidade da aplicação alvo."
-        )
-
-    print(f"[A03] Registros retornados - Consulta base: {baseline_results}, Tautologia ('1'='1): {tautology_results}, Condição falsa: {false_results}")
-
-    # Se a injeção tautológica retornou mais registros do que a consulta legítima
-    # e a injeção falsa retornou menos, a query SQL foi manipulada com sucesso
-    if tautology_results > baseline_results:
-        return Finding(
-            category="A03",
-            name="Injection",
-            test="SQL Injection (Boolean-based)",
-            status="detected",
-            severity="critical",
-            evidence=(
-                f"A injeção lógica '{tautology_payload}' alterou a semântica da consulta SQL, retornando "
-                f"{tautology_results} registros, enquanto a consulta legítima de referência retornou apenas {baseline_results}. "
-                f"A injeção contraditória '{false_payload}' retornou {false_results} registros, comprovando "
-                "a execução arbitrária da condição booleana no banco de dados."
-            ),
-            recommendation=(
-                "Implementar imediatamente consultas parametrizadas (Prepared Statements com PDO ou MySQLi). "
-                "Nunca concatenar dados de entrada de usuários diretamente em strings de comando SQL."
-            )
         )
 
     return Finding(
@@ -187,7 +214,7 @@ def run_sql_injection(
             base_url=base_url,
             username=username,
             password=password,
-            security_level="low"
+            security_level="medium"
         )
         print("[A03] Sessão autenticada criada com sucesso.")
     else:

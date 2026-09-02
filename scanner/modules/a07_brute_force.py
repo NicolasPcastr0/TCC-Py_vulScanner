@@ -158,18 +158,28 @@ def test_rate_limiting(
     responses = []
 
     for password in invalid_passwords:
-
         params = {
             "username": username,
             "password": password,
             "Login": "Login"
         }
 
-        response = session.get(
-            brute_force_url,
-            params=params,
-            timeout=10
-        )
+        try:
+            response = session.get(
+                brute_force_url,
+                params=params,
+                timeout=20
+            )
+        except requests.RequestException as e:
+            return Finding(
+                category="A07",
+                name="Authentication Failures",
+                test="Brute Force Protection",
+                status="error",
+                severity="medium",
+                evidence=f"Falha de comunicação durante o teste de proteção contra força bruta: {e}",
+                recommendation="Verificar a estabilidade da conexão com a aplicação alvo."
+            )
 
         responses.append(response)
 
@@ -229,7 +239,8 @@ def test_rate_limiting(
             evidence=(
                 f"Foram realizadas {len(invalid_passwords)} tentativas inválidas consecutivas "
                 "e a aplicação continuou respondendo normalmente com HTTP 200, sem apresentar "
-                "mecanismos observáveis de bloqueio, atraso progressivo ou limitação de taxa (rate limiting)."
+                "mecanismos observáveis de bloqueio de conta (Account Lockout), atraso progressivo "
+                "ou limitação de taxa (rate limiting)."
             ),
             recommendation=(
                 "Implementar controles defensivos contra tentativas automatizadas, "
@@ -249,8 +260,7 @@ def test_rate_limiting(
             "consecutivas, indicando provável mecanismo defensivo ativo."
         ),
         recommendation=(
-            "Avaliar a eficácia das regras de proteção e manter o monitoramento "
-            "ativo de requisições de autenticação."
+            "Manter e auditar os controles de segurança de autenticação existentes."
         )
     )
 

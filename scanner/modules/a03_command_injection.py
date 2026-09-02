@@ -44,9 +44,19 @@ def test_command_injection(
         if canary_token in response.text:
             soup = BeautifulSoup(response.text, "html.parser")
             pre_tag = soup.find("pre")
-            snippet = pre_tag.text.strip() if pre_tag else f"String '{canary_token}' encontrada no corpo da resposta."
+            
+            if pre_tag:
+                lines = [line.strip() for line in pre_tag.text.strip().splitlines() if line.strip()]
+                # Mantém as linhas finais que contêm a confirmação de execução de forma enxuta
+                snippet = " | ".join(lines[-2:]) if len(lines) >= 2 else lines[0]
+            else:
+                snippet = f"Marcador '{canary_token}' encontrado no corpo da resposta."
 
             print(f"[A03] Injeção de comando de SO detectada com o payload: {payload}")
+
+            bypass_info = ""
+            if "|" in payload:
+                bypass_info = "O teste contornou com sucesso a lista negra de operadores (bloqueio de ';' e '&&') utilizando o operador pipe ('|'). "
 
             return Finding(
                 category="A03",
@@ -56,8 +66,8 @@ def test_command_injection(
                 severity="critical",
                 evidence=(
                     f"O servidor executou comandos arbitrários de shell concatenados à entrada. "
-                    f"Ao enviar o payload '{payload}', o comando foi executado e retornou o marcador "
-                    f"'{canary_token}' na saída do terminal do servidor. "
+                    f"{bypass_info}Ao submeter o payload '{payload}', o comando injetado foi executado "
+                    f"no sistema operacional e retornou o marcador de confirmação '{canary_token}'. "
                     f"Trecho capturado: '{snippet}'."
                 ),
                 recommendation=(

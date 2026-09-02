@@ -59,4 +59,22 @@ def create_dvwa_session(
     # Configura o nível de segurança do DVWA nos cookies da sessão
     session.cookies.set("security", security_level)
 
+    # Submete formalmente a alteração de segurança no endpoint /security.php com CSRF token
+    try:
+        sec_page = session.get(f"{base_url}/security.php", timeout=10)
+        sec_soup = BeautifulSoup(sec_page.text, "html.parser")
+        sec_token_input = sec_soup.find("input", {"name": "user_token"})
+        
+        sec_data = {
+            "security": security_level,
+            "seclev_submit": "Submit"
+        }
+        if sec_token_input:
+            sec_data["user_token"] = sec_token_input.get("value")
+
+        session.post(f"{base_url}/security.php", data=sec_data, timeout=10)
+    except Exception:
+        # Se o formulário não responder, o cookie já mantém a preferência
+        pass
+
     return session

@@ -14,11 +14,14 @@ def test_reflected_xss(
     Envia payloads de teste com marcadores e verifica se são refletidos no corpo HTML
     da resposta sem a devida sanitização ou codificação de entidades HTML.
     """
-    # Payloads seguros com identificadores do SecureScan
+    # Payloads seguros com identificadores do SecureScan (inclui técnicas de contorno de filtros)
     probe_token = "SECURESCAN_XSS_PROBE"
     payloads = [
         f"<script>/*{probe_token}*/</script>",
         f"<img src=x onerror=/*{probe_token}*/ />",
+        f"<SCRIPT>/*{probe_token}*/</SCRIPT>",
+        f"<sCript>/*{probe_token}*/</script>",
+        f"<scr<script>ipt>/*{probe_token}*/</script>",
         f'"><script>/*{probe_token}*/</script>',
         f"'><script>/*{probe_token}*/</script>",
     ]
@@ -51,6 +54,10 @@ def test_reflected_xss(
 
             print(f"[A03] XSS Refletido detectado com o payload: {payload}")
 
+            bypass_info = ""
+            if "<img" in payload or "<SCRIPT" in payload or "<scr<script>" in payload:
+                bypass_info = "O payload polimórfico contornou com sucesso o filtro de sanitização ingênuo (str_replace) que tentava remover apenas tags '<script>' literais. "
+
             return Finding(
                 category="A03",
                 name="Injection",
@@ -58,14 +65,14 @@ def test_reflected_xss(
                 status="detected",
                 severity="high",
                 evidence=(
-                    f"A aplicação refletiu o payload de teste '{payload}' diretamente no corpo da resposta "
-                    f"sem codificar caracteres especiais em entidades HTML. Trecho identificado: '{snippet}'."
+                    f"A aplicação refletiu o payload de teste '{payload}' diretamente no corpo da resposta sem codificar "
+                    f"caracteres especiais em entidades HTML. {bypass_info}Trecho identificado no HTML: '{snippet}'."
                 ),
                 recommendation=(
-                    "Implementar codificação de saída sensível ao contexto (Context-Aware Output Encoding) "
-                    "utilizando funções adequadas (como htmlspecialchars() com flags ENT_QUOTES no PHP) "
-                    "ou mecanismos de auto-escape de templates. Configurar cabeçalhos de segurança como "
-                    "Content-Security-Policy (CSP) para mitigar a execução de scripts inline não autorizados."
+                    "Implementar codificação de saída sensível ao contexto (Context-Aware Output Encoding) utilizando "
+                    "funções adequadas (como htmlspecialchars() com flags ENT_QUOTES no PHP) ou mecanismos de auto-escape "
+                    "de templates. Configurar cabeçalhos de segurança como Content-Security-Policy (CSP) para mitigar a "
+                    "execução de scripts inline não autorizados."
                 )
             )
 
