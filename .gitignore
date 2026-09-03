@@ -28,3 +28,8 @@ Thumbs.db
 # Relatórios gerados em tempo de execução
 reports/*
 !reports/.gitkeep
+
+# Dependências e compilação do Frontend React
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
