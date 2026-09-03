@@ -62,10 +62,8 @@ export const ScanInput: React.FC<ScanInputProps> = ({
               disabled={isLoading}
               className="select-input"
             >
-              <option value="low">Low (Sem defesas)</option>
-              <option value="medium">Medium (Defesas parciais)</option>
-              <option value="high">High (Defesas avançadas)</option>
-              <option value="impossible">Impossible (Defesa ideal)</option>
+              <option value="low">Low (Sem defesas / Exploração trivial)</option>
+              <option value="medium">Medium (Defesas parciais / Evasão de filtros)</option>
             </select>
           </div>
         </div>

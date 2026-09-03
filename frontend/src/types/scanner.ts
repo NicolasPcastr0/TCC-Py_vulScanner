@@ -2,7 +2,7 @@ export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'safe';
 
 export type Status = 'detected' | 'not_detected' | 'error';
 
-export type SecurityLevel = 'low' | 'medium' | 'high' | 'impossible';
+export type SecurityLevel = 'low' | 'medium';
 
 export interface Finding {
   id: string;
