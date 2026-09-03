@@ -681,6 +681,32 @@ body {
   color: var(--text-secondary);
 }
 
+.ai-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.ai-badge-ai {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+}
+
+.ai-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .ai-model-pill {
   display: flex;
   align-items: center;
@@ -693,12 +719,179 @@ body {
   border-radius: 20px;
 }
 
-.ai-text-pre {
-  white-space: pre-wrap;
-  font-family: inherit;
-  font-size: 0.92rem;
+.btn-copy-ai {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background-color: #1e293b;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-copy-ai:hover {
+  background-color: #334155;
+  color: #f8fafc;
+  border-color: #475569;
+}
+
+/* AI Rich Markdown Content */
+.ai-markdown-content {
   color: #e2e8f0;
+  font-size: 0.94rem;
   line-height: 1.7;
+}
+
+.ai-section-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #93c5fd;
+  margin-top: 1.75rem;
+  margin-bottom: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-left: 0.75rem;
+  border-left: 4px solid #3b82f6;
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%);
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.ai-section-title:first-child {
+  margin-top: 0.5rem;
+}
+
+.ai-sub-title {
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: #bae6fd;
+  margin-top: 1.25rem;
+  margin-bottom: 0.6rem;
+}
+
+.ai-paragraph {
+  margin-bottom: 0.9rem;
+  color: #cbd5e1;
+  line-height: 1.75;
+}
+
+.ai-strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.ai-bullet-list, .ai-numbered-list {
+  margin-left: 1.25rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ai-list-item {
+  color: #cbd5e1;
+  line-height: 1.65;
+}
+
+.ai-inline-code {
+  font-family: Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.84rem;
+  background-color: #0c1427;
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.ai-code-wrapper {
+  background-color: #080d18;
+  border: 1px solid #1c263c;
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.2rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.ai-block-code {
+  font-family: Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.86rem;
+  color: #38bdf8;
+  line-height: 1.5;
+}
+
+.ai-quote {
+  border-left: 4px solid #a855f7;
+  background-color: rgba(168, 85, 247, 0.08);
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: #e9d5ff;
+}
+
+/* AI Data Table (Matriz de Priorização) */
+.ai-table-container {
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background-color: #0b1120;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.ai-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.ai-table-th {
+  background-color: #131d33;
+  color: #93c5fd;
+  font-weight: 700;
+  padding: 0.9rem 1.1rem;
+  border-bottom: 2px solid var(--border-subtle);
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.ai-table-td {
+  padding: 0.9rem 1.1rem;
+  border-bottom: 1px solid rgba(30, 44, 71, 0.6);
+  color: #e2e8f0;
+  vertical-align: middle;
+}
+
+.ai-table tr:last-child .ai-table-td {
+  border-bottom: none;
+}
+
+.ai-table tr:hover .ai-table-td {
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+.cell-badge-critical {
+  color: #fca5a5 !important;
+  font-weight: 600;
+}
+
+.cell-badge-high {
+  color: #fdba74 !important;
+  font-weight: 600;
+}
+
+.cell-badge-medium {
+  color: #fde047 !important;
+  font-weight: 600;
 }
 
 /* Export Footer */
