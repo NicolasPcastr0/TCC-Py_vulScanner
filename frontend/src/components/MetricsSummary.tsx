@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldAlert, AlertTriangle, AlertCircle, ShieldCheck, Layers } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, AlertCircle, ShieldCheck, Layers, Info } from 'lucide-react';
 import type { ScanSummary } from '../types/scanner';
 
 interface MetricsSummaryProps {
@@ -67,6 +67,16 @@ export const MetricsSummary: React.FC<MetricsSummaryProps> = ({
           <div className="metric-info">
             <span className="metric-count">{summary.medium}</span>
             <span className="metric-title">Médias</span>
+          </div>
+        </div>
+
+        <div className="metric-card metric-low">
+          <div className="metric-icon-wrap">
+            <Info size={20} />
+          </div>
+          <div className="metric-info">
+            <span className="metric-count">{summary.low}</span>
+            <span className="metric-title">Baixas</span>
           </div>
         </div>
 

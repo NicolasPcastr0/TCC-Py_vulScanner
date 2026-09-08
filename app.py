@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from scanner.core.scanner import Scanner
+from scanner.modules.a05_security_misconfiguration import run_security_misconfiguration
 from scanner.modules.a07_brute_force import run_brute_force
 from scanner.modules.a03_sql_injection import run_sql_injection
 from scanner.modules.a03_xss import run_xss
@@ -78,6 +79,7 @@ class SecureScanAPIHandler(SimpleHTTPRequestHandler):
 
                 # 2. Inicialização do orquestrador
                 scanner = Scanner()
+                scanner.register_module(run_security_misconfiguration)
                 scanner.register_module(run_brute_force)
                 scanner.register_module(run_sql_injection)
                 scanner.register_module(run_xss)
@@ -106,8 +108,8 @@ class SecureScanAPIHandler(SimpleHTTPRequestHandler):
                         "critical": sum(1 for f in findings if f.severity.lower() == "critical"),
                         "high": sum(1 for f in findings if f.severity.lower() == "high"),
                         "medium": sum(1 for f in findings if f.severity.lower() == "medium"),
-                        "low": sum(1 for f in findings if f.severity.lower() == "low"),
-                        "safe": 0
+                        "low": sum(1 for f in findings if f.severity.lower() == "low" and f.status == "detected"),
+                        "safe": sum(1 for f in findings if f.status == "not_detected" or f.severity.lower() == "safe")
                     },
                     "findings": [
                         {

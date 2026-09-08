@@ -26,6 +26,10 @@
   --medium-bg: rgba(234, 179, 8, 0.12);
   --medium-border: rgba(234, 179, 8, 0.35);
 
+  --low-blue: #38bdf8;
+  --low-bg: rgba(56, 189, 248, 0.12);
+  --low-border: rgba(56, 189, 248, 0.35);
+
   --safe-green: #10b981;
   --safe-bg: rgba(16, 185, 129, 0.12);
   --safe-border: rgba(16, 185, 129, 0.35);
@@ -407,6 +411,7 @@ body {
 .metric-critical { border-left: 4px solid var(--critical-red); }
 .metric-high { border-left: 4px solid var(--high-orange); }
 .metric-medium { border-left: 4px solid var(--medium-yellow); }
+.metric-low { border-left: 4px solid var(--low-blue); }
 .metric-safe { border-left: 4px solid var(--safe-green); }
 
 .metric-icon-wrap {
@@ -422,6 +427,7 @@ body {
 .metric-critical .metric-icon-wrap { background: var(--critical-bg); color: var(--critical-red); }
 .metric-high .metric-icon-wrap { background: var(--high-bg); color: var(--high-orange); }
 .metric-medium .metric-icon-wrap { background: var(--medium-bg); color: var(--medium-yellow); }
+.metric-low .metric-icon-wrap { background: var(--low-bg); color: var(--low-blue); }
 .metric-safe .metric-icon-wrap { background: var(--safe-bg); color: var(--safe-green); }
 
 .metric-count {
@@ -479,6 +485,7 @@ body {
 .finding-accordion.sev-critical { border-left: 5px solid var(--critical-red); }
 .finding-accordion.sev-high { border-left: 5px solid var(--high-orange); }
 .finding-accordion.sev-medium { border-left: 5px solid var(--medium-yellow); }
+.finding-accordion.sev-low { border-left: 5px solid var(--low-blue); }
 .finding-accordion.sev-safe { border-left: 5px solid var(--safe-green); }
 
 .accordion-summary {
@@ -519,6 +526,7 @@ body {
 .badge-severity.sev-critical { background: var(--critical-bg); color: #fca5a5; border: 1px solid var(--critical-border); }
 .badge-severity.sev-high { background: var(--high-bg); color: #fdba74; border: 1px solid var(--high-border); }
 .badge-severity.sev-medium { background: var(--medium-bg); color: #fde047; border: 1px solid var(--medium-border); }
+.badge-severity.sev-low { background: var(--low-bg); color: #7dd3fc; border: 1px solid var(--low-border); }
 .badge-severity.sev-safe { background: var(--safe-bg); color: #86efac; border: 1px solid var(--safe-border); }
 
 .summary-title {
@@ -585,6 +593,18 @@ body {
   background: rgba(239, 68, 68, 0.2);
   color: #fca5a5;
   border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.status-low {
+  background: rgba(56, 189, 248, 0.2);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.status-safe {
+  background: rgba(16, 185, 129, 0.2);
+  color: #86efac;
+  border: 1px solid rgba(16, 185, 129, 0.4);
 }
 
 .detail-block {

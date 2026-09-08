@@ -63,17 +63,68 @@ export const MOCK_FINDINGS_LOW: Finding[] = [
     severity: 'critical',
     evidence: "O servidor executou comandos arbitrários de shell concatenados pelo operador ';' (payload: '127.0.0.1; echo SECURESCAN_CMD_EXEC_CONFIRMED'). O comando retornou o marcador de confirmação na saída da resposta.",
     recommendation: 'Evitar a invocação de comandos de shell via shell_exec() ou system(). Utilizar APIs nativas da linguagem de programação e validação estrita de formato (whitelisting).'
+  },
+  {
+    id: 'FIND-007',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Ausência de Content-Security-Policy (CSP)',
+    status: 'detected',
+    severity: 'medium',
+    evidence: "O cabeçalho de resposta HTTP 'Content-Security-Policy' não foi retornado pela aplicação. A ausência de CSP impede que o navegador restrinja a origem de scripts e recursos dinâmicos, ampliando a superfície de exploração para ataques de XSS e injeção de dados.",
+    recommendation: "Configurar uma política rigorosa de Content-Security-Policy no servidor web ou na aplicação (ex.: Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none')."
+  },
+  {
+    id: 'FIND-008',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Ausência de Proteção contra Clickjacking (X-Frame-Options)',
+    status: 'detected',
+    severity: 'medium',
+    evidence: "O cabeçalho 'X-Frame-Options' não foi configurado e não há diretiva 'frame-ancestors' no CSP. A aplicação pode ser incorporada em <iframe> ou <frame> por sites maliciosos para realizar ataques de Clickjacking (UI Redressing).",
+    recommendation: "Adicionar o cabeçalho 'X-Frame-Options: DENY' ou 'X-Frame-Options: SAMEORIGIN', ou utilizar a diretiva 'frame-ancestors' na Content-Security-Policy."
+  },
+  {
+    id: 'FIND-009',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Ausência de X-Content-Type-Options (MIME Sniffing)',
+    status: 'detected',
+    severity: 'low',
+    evidence: "O cabeçalho 'X-Content-Type-Options: nosniff' não foi enviado pelo servidor. Navegadores podem tentar adivinhar o tipo MIME de arquivos de forma divergente do cabeçalho Content-Type, o que pode levar à interpretação indevida de arquivos de mídia como scripts executáveis.",
+    recommendation: "Configurar o cabeçalho 'X-Content-Type-Options: nosniff' em todas as respostas HTTP da aplicação."
+  },
+  {
+    id: 'FIND-010',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Ausência de Strict-Transport-Security (HSTS)',
+    status: 'detected',
+    severity: 'low',
+    evidence: "O cabeçalho 'Strict-Transport-Security' (HSTS) não foi identificado na resposta HTTP. A ausência de HSTS permite que atacantes na mesma rede realizem ataques de rebaixamento de protocolo (SSL Stripping) e interceptem tráfego não criptografado.",
+    recommendation: "Migrar todo o tráfego da aplicação para HTTPS e adicionar o cabeçalho 'Strict-Transport-Security: max-age=31536000; includeSubDomains'."
+  },
+  {
+    id: 'FIND-011',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Vazamento de Informações do Servidor (Banner Disclosure)',
+    status: 'detected',
+    severity: 'low',
+    evidence: "Foram identificados cabeçalhos de resposta HTTP que divulgam tecnologias e versões internas: Server: 'Apache/2.4.54 (Debian)', X-Powered-By: 'PHP/8.1.2'. Essa exposição facilita o levantamento de vulnerabilidades públicas conhecidas (CVEs) direcionadas à versão exata do software em execução.",
+    recommendation: "Ocultar banners e versões de software no servidor web (no Apache: 'ServerTokens Prod' e 'ServerSignature Off'; no Nginx: 'server_tokens off'; no PHP: 'expose_php = Off' no php.ini)."
   }
 ];
 
 export const MOCK_AI_REPORT_LOW = `### 1. Visão Geral da Postura de Segurança (Nível LOW)
 - **Nível de Risco Geral:** CRÍTICO
-- **Resumo Executivo:** O alvo analisado no nível LOW apresenta **ausência total de controles defensivos**. Todas as 6 verificações foram positivas para exploração direta e sem atrito. A aplicação é vulnerável a Execução Remota de Código (RCE), extração irrestrita de dados via SQLi e sequestro de sessão via XSS direto.
+- **Resumo Executivo:** O alvo analisado no nível LOW apresenta **ausência total de controles defensivos**. Foram detectadas vulnerabilidades críticas de injeção (SQLi e Command Injection), falhas de autenticação (Brute Force sem rate limit) e múltiplas configurações incorretas de segurança (**OWASP A05:2021**), incluindo ausência total de cabeçalhos de proteção (CSP, X-Frame-Options, HSTS) e vazamento explícito de versão do servidor web Apache e PHP.
 
 ### 2. Cenário de Encadeamento de Ataque (Kill Chain)
-1. **Reconhecimento & Acesso:** A ausência de rate limiting permite que o atacante descubra credenciais administrativas em poucos segundos.
-2. **Exfiltração de Dados:** Com uma injeção SQL trivial baseada em aspas no parâmetro GET (1' OR '1'='1), o atacante extrai a tabela completa de usuários e hashes.
-3. **Comprometimento Integral do Servidor:** Injetando comandos diretos através de ';' na funcionalidade de rede, o invasor obtém shell interativo no servidor sob o privilégio do usuário web (www-data).
+1. **Reconhecimento:** Através do cabeçalho \`Server: Apache/2.4.54\` e \`X-Powered-By: PHP/8.1.2\` (A05), o atacante mapeia o ambiente exato e CVEs públicas.
+2. **Acesso Inicial:** A ausência de rate limiting (A07) permite descobrir credenciais administrativas via ataque de dicionário em poucos segundos.
+3. **Exfiltração de Dados:** Com uma injeção SQL trivial no parâmetro GET (\`1' OR '1'='1\`) (A03), o invasor extrai toda a tabela de usuários.
+4. **Execução Remota de Código (RCE):** Através de injeção de comandos com \`;\` na funcionalidade de rede (A03), o invasor obtém shell interativo no servidor.
 
 ### 3. Matriz de Priorização das Correções
 | Prioridade | Vulnerabilidade | Causa Raiz | Ação Recomendada |
@@ -81,7 +132,9 @@ export const MOCK_AI_REPORT_LOW = `### 1. Visão Geral da Postura de Segurança 
 | 🔴 IMEDIATA | Command Injection | Concatenação direta em shell_exec() | Substituir por funções nativas e validação de IP |
 | 🔴 IMEDIATA | SQL Injection (Boolean & Error) | Concatenação de string na query | Migrar para Prepared Statements (PDO) |
 | 🟠 ALTA | XSS Refletido | Falta de escape de caracteres HTML | Aplicar htmlspecialchars(..., ENT_QUOTES) |
-| 🟡 MÉDIA | Falhas de Autenticação | Sem limitação de tentativas de login | Implementar Rate Limiting e MFA |`;
+| 🟡 MÉDIA | Falhas de Autenticação | Sem limitação de tentativas de login | Implementar Rate Limiting e MFA |
+| 🟡 MÉDIA | Ausência de CSP & X-Frame-Options | Cabeçalhos HTTP defensivos ausentes (A05) | Adicionar CSP e X-Frame-Options no servidor |
+| 🔵 BAIXA | Banner Disclosure & MIME Sniffing | Exposição de versão e falta de nosniff (A05) | Configurar ServerTokens Prod e X-Content-Type-Options |`;
 
 /**
  * Dados para o nível MEDIUM: Defesas parciais implementadas pelo DVWA que o SecureScan contorna.
@@ -146,18 +199,69 @@ export const MOCK_FINDINGS_MEDIUM: Finding[] = [
     severity: 'critical',
     evidence: "A aplicação bloqueou os caracteres ';' e '&&', mas omitiu o operador pipe ('|'). O scanner enviou o payload '127.0.0.1 | echo SECURESCAN_CMD_EXEC_CONFIRMED', contornando a blacklist e executando comandos de shell no servidor.",
     recommendation: 'Listas negras de caracteres são inerentemente frágeis em segurança ofensiva. Eliminar chamadas de shell e aplicar listas brancas rigorosas (whitelisting de IPs via regex).'
+  },
+  {
+    id: 'FIND-007',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Ausência de Content-Security-Policy (CSP)',
+    status: 'detected',
+    severity: 'medium',
+    evidence: "O cabeçalho de resposta HTTP 'Content-Security-Policy' não foi retornado pela aplicação. A ausência de CSP impede que o navegador restrinja a origem de scripts e recursos dinâmicos, ampliando a superfície de exploração para ataques de XSS e injeção de dados.",
+    recommendation: "Configurar uma política rigorosa de Content-Security-Policy no servidor web ou na aplicação (ex.: Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none')."
+  },
+  {
+    id: 'FIND-008',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Ausência de Proteção contra Clickjacking (X-Frame-Options)',
+    status: 'detected',
+    severity: 'medium',
+    evidence: "O cabeçalho 'X-Frame-Options' não foi configurado e não há diretiva 'frame-ancestors' no CSP. A aplicação pode ser incorporada em <iframe> ou <frame> por sites maliciosos para realizar ataques de Clickjacking (UI Redressing).",
+    recommendation: "Adicionar o cabeçalho 'X-Frame-Options: DENY' ou 'X-Frame-Options: SAMEORIGIN', ou utilizar a diretiva 'frame-ancestors' na Content-Security-Policy."
+  },
+  {
+    id: 'FIND-009',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Ausência de X-Content-Type-Options (MIME Sniffing)',
+    status: 'detected',
+    severity: 'low',
+    evidence: "O cabeçalho 'X-Content-Type-Options: nosniff' não foi enviado pelo servidor. Navegadores podem tentar adivinhar o tipo MIME de arquivos de forma divergente do cabeçalho Content-Type, o que pode levar à interpretação indevida de arquivos de mídia como scripts executáveis.",
+    recommendation: "Configurar o cabeçalho 'X-Content-Type-Options: nosniff' em todas as respostas HTTP da aplicação."
+  },
+  {
+    id: 'FIND-010',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Ausência de Strict-Transport-Security (HSTS)',
+    status: 'detected',
+    severity: 'low',
+    evidence: "O cabeçalho 'Strict-Transport-Security' (HSTS) não foi identificado na resposta HTTP. A ausência de HSTS permite que atacantes na mesma rede realizem ataques de rebaixamento de protocolo (SSL Stripping) e interceptem tráfego não criptografado.",
+    recommendation: "Migrar todo o tráfego da aplicação para HTTPS e adicionar o cabeçalho 'Strict-Transport-Security: max-age=31536000; includeSubDomains'."
+  },
+  {
+    id: 'FIND-011',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Vazamento de Informações do Servidor (Banner Disclosure)',
+    status: 'detected',
+    severity: 'low',
+    evidence: "Foram identificados cabeçalhos de resposta HTTP que divulgam tecnologias e versões internas: Server: 'Apache/2.4.54 (Debian)', X-Powered-By: 'PHP/8.1.2'. Essa exposição facilita o levantamento de vulnerabilidades públicas conhecidas (CVEs) direcionadas à versão exata do software em execução.",
+    recommendation: "Ocultar banners e versões de software no servidor web (no Apache: 'ServerTokens Prod' e 'ServerSignature Off'; no Nginx: 'server_tokens off'; no PHP: 'expose_php = Off' no php.ini)."
   }
 ];
 
 export const MOCK_AI_REPORT_MEDIUM = `### 1. Visão Geral da Postura de Segurança (Nível MEDIUM)
 - **Nível de Risco Geral:** CRÍTICO (Evasão de Controles Defensivos)
-- **Resumo Executivo:** O alvo analisado no nível MEDIUM implementou **tentativas ingênuas de mitigação** (sanitização de aspas, remoção de tags <script>, blacklist de operadores de shell e atraso de 2s no login). No entanto, o SecureScan comprovou a **ineficácia de defesas parciais**, contornando todas as proteções através de técnicas de evasão (*Defense Bypassing*).
+- **Resumo Executivo:** O alvo analisado no nível MEDIUM implementou **tentativas ingênuas de mitigação** (sanitização de aspas, remoção de tags <script>, blacklist de operadores de shell e atraso de 2s no login). No entanto, o SecureScan comprovou a ineficácia de defesas parciais através de técnicas de evasão (*Defense Bypassing*). Além disso, a aplicação mantém **configurações incorretas de segurança (OWASP A05:2021)**, sem cabeçalhos de defesa (CSP e X-Frame-Options ausentes) e com vazamento explícito da pilha de tecnologias (\`Apache/2.4.54\` e \`PHP/8.1.2\`).
 
-### 2. Análise Técnica dos Bypasses Identificados
-1. **SQL Injection Numérico:** A função \`mysqli_real_escape_string()\` escapa apenas aspas, mas a consulta SQL utilizava \`WHERE user_id = $id\` (sem aspas). A injeção \`1 OR 1=1\` passou intacta pelo filtro.
-2. **XSS Polimórfico:** A função \`str_replace('<script>', '', $name)\` foi superada utilizando vetores baseados em manipuladores de eventos em tags de imagem (\`<img onerror=...>\`).
-3. **Command Injection via Pipe:** A blacklist que bloqueava \`;\` e \`&&\` esqueceu o operador \`|\` (pipe), permitindo a execução de comandos encadeados no terminal.
-4. **Força Bruta com Tarpitting:** O atraso de 2 segundos atrasa o ataque, mas a falta de bloqueio de conta permite que a senha correta seja eventualmente descoberta.
+### 2. Análise Técnica dos Bypasses & Misconfigurations
+1. **Vazamento Tecnológico (A05):** Os cabeçalhos HTTP revelam a versão exata do Apache e do PHP, permitindo que atacantes busquem exploits direcionados.
+2. **SQL Injection Numérico (A03):** A função \`mysqli_real_escape_string()\` foi superada pela injeção \`1 OR 1=1\` em campo numérico sem aspas.
+3. **XSS Polimórfico (A03):** A remoção ingênua de \`<script>\` foi contornada via tag \`<img onerror=...>\`. A ausência de CSP (A05) permitiu a execução irrestrita do script malicioso.
+4. **Command Injection via Pipe (A03):** A blacklist de \`;\` e \`&&\` foi contornada com o operador pipe (\`|\`).
+5. **Força Bruta com Tarpitting (A07):** O atraso de 2s atrasa o ataque, mas a falta de bloqueio de conta viabiliza a quebra de credenciais.
 
 ### 3. Matriz de Priorização das Correções
 | Prioridade | Vulnerabilidade | Falha do Controle do Nível Medium | Solução Definitiva da Indústria |
@@ -165,10 +269,13 @@ export const MOCK_AI_REPORT_MEDIUM = `### 1. Visão Geral da Postura de Seguran�
 | 🔴 IMEDIATA | Command Injection | Blacklist incompleta de operadores | Whitelist estrita de formato com filter_var() |
 | 🔴 IMEDIATA | SQL Injection (Boolean) | Escapar aspas em campo numérico | Prepared Statements com PDO |
 | 🟠 ALTA | XSS Refletido | Filtro ingênuo com str_replace | htmlspecialchars(..., ENT_QUOTES) e CSP |
-| 🟡 MÉDIA | Autenticação Fraca | Apenas atraso de 2s sem bloqueio | Account Lockout após 5 falhas e MFA |`;
+| 🟡 MÉDIA | Autenticação Fraca | Apenas atraso de 2s sem bloqueio | Account Lockout após 5 falhas e MFA |
+| 🟡 MÉDIA | Ausência de CSP e X-Frame-Options | Cabeçalhos de segurança ausentes (A05) | Implementar CSP restrito e X-Frame-Options |
+| 🔵 BAIXA | Exposição de Versão (Banner) | Exposição de Apache e PHP nos cabeçalhos | ServerTokens Prod e expose_php = Off |`;
 
 export const SCAN_STEPS = [
   'Conectando e autenticando no alvo...',
+  'Auditando Cabeçalhos de Segurança HTTP e Misconfigurations (A05)...',
   'Testando Força Bruta e Proteção de Login (A07)...',
   'Auditando SQL Injection Error-based e Boolean-based (A03)...',
   'Injetando vetores de Cross-Site Scripting Refletido (A03)...',
@@ -193,7 +300,7 @@ export async function runMockScan(
       onProgress(stepText, percent);
     }
     // Pausa visual suave entre 450ms e 600ms por etapa
-    await new Promise((resolve) => setTimeout(resolve, 550));
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
   const durationSeconds = Math.round((Date.now() - startTime) / 1000);
@@ -213,8 +320,8 @@ export async function runMockScan(
       critical: findings.filter((f) => f.severity === 'critical').length,
       high: findings.filter((f) => f.severity === 'high').length,
       medium: findings.filter((f) => f.severity === 'medium').length,
-      low: 0,
-      safe: 0
+      low: findings.filter((f) => f.severity === 'low').length,
+      safe: findings.filter((f) => f.status === 'not_detected' || f.severity === 'safe').length
     },
     findings,
     aiExecutiveReport: aiReport

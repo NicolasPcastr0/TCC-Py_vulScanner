@@ -6,6 +6,7 @@ from scanner.reports import ReportExporter
 from scanner.modules.a03_command_injection import run_command_injection
 from scanner.modules.a03_sql_injection import run_sql_injection
 from scanner.modules.a03_xss import run_xss
+from scanner.modules.a05_security_misconfiguration import run_security_misconfiguration
 from scanner.modules.a07_brute_force import run_brute_force
 from scanner.utils.dvwa import create_dvwa_session
 
@@ -58,6 +59,7 @@ except Exception as e:
 scanner = Scanner()
 
 # 3. Registro dos módulos de teste (OWASP Top 10)
+scanner.register_module(run_security_misconfiguration)
 scanner.register_module(run_brute_force)
 scanner.register_module(run_sql_injection)
 scanner.register_module(run_xss)

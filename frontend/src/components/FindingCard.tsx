@@ -1,5 +1,5 @@
 import { ChevronDown, Terminal, Shield } from 'lucide-react';
-import type { Finding, Severity } from '../types/scanner';
+import type { Finding } from '../types/scanner';
 
 interface FindingCardProps {
   finding: Finding;
@@ -7,44 +7,65 @@ interface FindingCardProps {
 }
 
 export const FindingCard: React.FC<FindingCardProps> = ({ finding, index }) => {
-  const getSeverityDetails = (severity: Severity) => {
-    switch (severity.toLowerCase()) {
+  const getFindingDetails = () => {
+    // Se o teste não detectou falha, o alvo está protegido contra esta técnica
+    if (finding.status === 'not_detected' || finding.severity === 'safe') {
+      return {
+        emoji: '🟢',
+        label: 'PROTEGIDO',
+        colorClass: 'sev-safe',
+        statusLabel: 'PROTEGIDO',
+        statusClass: 'status-safe'
+      };
+    }
+
+    // Vulnerabilidade identificada - mapeia de acordo com a severidade CVSS/OWASP
+    switch (finding.severity.toLowerCase()) {
       case 'critical':
         return {
           emoji: '🔴',
           label: 'CRÍTICO',
-          colorClass: 'sev-critical'
+          colorClass: 'sev-critical',
+          statusLabel: 'VULNERÁVEL',
+          statusClass: 'status-detected'
         };
       case 'high':
         return {
           emoji: '🟠',
           label: 'ALTO',
-          colorClass: 'sev-high'
+          colorClass: 'sev-high',
+          statusLabel: 'VULNERÁVEL',
+          statusClass: 'status-detected'
         };
       case 'medium':
         return {
           emoji: '🟡',
           label: 'MÉDIO',
-          colorClass: 'sev-medium'
+          colorClass: 'sev-medium',
+          statusLabel: 'VULNERÁVEL',
+          statusClass: 'status-detected'
         };
+      case 'low':
       default:
         return {
-          emoji: '🟢',
-          label: 'SEGURO',
-          colorClass: 'sev-safe'
+          emoji: '🔵',
+          label: 'BAIXO',
+          colorClass: 'sev-low',
+          statusLabel: 'VULNERÁVEL',
+          statusClass: 'status-low'
         };
     }
   };
 
-  const sev = getSeverityDetails(finding.severity);
+  const details = getFindingDetails();
 
   return (
-    <details className={`finding-accordion ${sev.colorClass}`}>
+    <details className={`finding-accordion ${details.colorClass}`}>
       <summary className="accordion-summary">
         <div className="summary-left">
-          <span className="summary-emoji">{sev.emoji}</span>
-          <span className={`badge-severity ${sev.colorClass}`}>
-            [{sev.label}]
+          <span className="summary-emoji">{details.emoji}</span>
+          <span className={`badge-severity ${details.colorClass}`}>
+            [{details.label}]
           </span>
           <span className="summary-title">#{index} - {finding.test}</span>
         </div>
@@ -62,8 +83,10 @@ export const FindingCard: React.FC<FindingCardProps> = ({ finding, index }) => {
         </div>
 
         <div className="finding-detail-row">
-          <span className="detail-label">Status da Detecção:</span>
-          <span className="status-badge status-detected">{finding.status.toUpperCase()}</span>
+          <span className="detail-label">Status da Auditoria:</span>
+          <span className={`status-badge ${details.statusClass}`}>
+            {details.statusLabel} ({finding.status.toUpperCase()})
+          </span>
         </div>
 
         <div className="detail-block">
