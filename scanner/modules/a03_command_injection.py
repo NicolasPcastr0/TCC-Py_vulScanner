@@ -19,6 +19,7 @@ def test_command_injection(
         f"127.0.0.1; echo {canary_token}",
         f"127.0.0.1 && echo {canary_token}",
         f"127.0.0.1 | echo {canary_token}",
+        f"127.0.0.1|echo {canary_token}",
     ]
 
     for payload in payloads:
@@ -55,7 +56,9 @@ def test_command_injection(
             print(f"[A03] Injeção de comando de SO detectada com o payload: {payload}")
 
             bypass_info = ""
-            if "|" in payload:
+            if payload == f"127.0.0.1|echo {canary_token}":
+                bypass_info = "O teste explorou uma falha de implementação na blacklist do nível High (que filtrava apenas '| ' com espaço), executando o comando através do pipe sem espaçamento ('|echo'). "
+            elif "|" in payload:
                 bypass_info = "O teste contornou com sucesso a lista negra de operadores (bloqueio de ';' e '&&') utilizando o operador pipe ('|'). "
 
             return Finding(

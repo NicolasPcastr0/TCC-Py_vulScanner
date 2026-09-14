@@ -19,6 +19,7 @@ def test_reflected_xss(
     payloads = [
         f"<script>/*{probe_token}*/</script>",
         f"<img src=x onerror=/*{probe_token}*/ />",
+        f"<svg/onload=/*{probe_token}*/ />",
         f"<SCRIPT>/*{probe_token}*/</SCRIPT>",
         f"<sCript>/*{probe_token}*/</script>",
         f"<scr<script>ipt>/*{probe_token}*/</script>",
@@ -55,7 +56,9 @@ def test_reflected_xss(
             print(f"[A03] XSS Refletido detectado com o payload: {payload}")
 
             bypass_info = ""
-            if "<img" in payload or "<SCRIPT" in payload or "<scr<script>" in payload:
+            if "<img" in payload or "<svg" in payload:
+                bypass_info = "O payload polimórfico contornou com sucesso os filtros de sanitização (str_replace e o regex preg_replace que buscavam a palavra 'script' nos níveis Medium e High), utilizando manipuladores de eventos em tags alternativas. "
+            elif "<SCRIPT" in payload or "<scr<script>" in payload:
                 bypass_info = "O payload polimórfico contornou com sucesso o filtro de sanitização ingênuo (str_replace) que tentava remover apenas tags '<script>' literais. "
 
             return Finding(

