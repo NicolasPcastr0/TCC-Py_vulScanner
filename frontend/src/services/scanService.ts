@@ -1,4 +1,4 @@
-import type { Finding, ScanResult, SecurityLevel } from '../types/scanner';
+import type { Finding, ScanResult, ScanSummary, SecurityLevel } from '../types/scanner';
 
 /**
  * Dados para o nível LOW: Ausência de defesas e exploração direta/trivial.
@@ -442,34 +442,171 @@ export async function runMockScan(
   const durationSeconds = Math.round((Date.now() - startTime) / 1000);
 
   // Seleciona o conjunto de dados de acordo com o nível configurado
-  let findings = MOCK_FINDINGS_LOW;
+  let rawFindings = MOCK_FINDINGS_LOW;
   let aiReport = MOCK_AI_REPORT_LOW;
 
   if (securityLevel === 'medium') {
-    findings = MOCK_FINDINGS_MEDIUM;
+    rawFindings = MOCK_FINDINGS_MEDIUM;
     aiReport = MOCK_AI_REPORT_MEDIUM;
   } else if (securityLevel === 'high') {
-    findings = MOCK_FINDINGS_HIGH;
+    rawFindings = MOCK_FINDINGS_HIGH;
     aiReport = MOCK_AI_REPORT_HIGH;
   }
+
+  const findings = rawFindings.map(enrichFinding);
+
+  const summary = {
+    total: findings.length,
+    critical: findings.filter((f) => f.severity === 'critical').length,
+    high: findings.filter((f) => f.severity === 'high').length,
+    medium: findings.filter((f) => f.severity === 'medium').length,
+    low: findings.filter((f) => f.severity === 'low').length,
+    safe: findings.filter((f) => f.status === 'not_detected' || f.severity === 'safe').length
+  };
 
   return {
     targetUrl,
     securityLevel,
     timestamp: new Date().toLocaleString('pt-BR'),
     durationSeconds: Math.max(durationSeconds, 4),
-    summary: {
-      total: findings.length,
-      critical: findings.filter((f) => f.severity === 'critical').length,
-      high: findings.filter((f) => f.severity === 'high').length,
-      medium: findings.filter((f) => f.severity === 'medium').length,
-      low: findings.filter((f) => f.severity === 'low').length,
-      safe: findings.filter((f) => f.status === 'not_detected' || f.severity === 'safe').length
-    },
+    summary,
+    score: calculateSecurityScore(summary, securityLevel),
     findings,
     aiExecutiveReport: aiReport
   };
 }
+
+/**
+ * Enriquece os achados com metadados para exibição detalhada nos painéis.
+ */
+export function enrichFinding(finding: Finding): Finding {
+  const metadataMap: Record<string, { confidence: number; endpoint: string; impact: string; aiAnalysis: string }> = {
+    'FIND-001': {
+      confidence: 98,
+      endpoint: '/vulnerabilities/brute/',
+      impact: 'Um atacante pode obter acesso administrativo completo utilizando ataques automatizados de dicionário ou credential stuffing sem restrição de tentativas.',
+      aiAnalysis: 'A ausência de políticas ativas de rate limiting ou bloqueio temporário viabiliza a quebra de credenciais fracas em poucos segundos.'
+    },
+    'FIND-002': {
+      confidence: 95,
+      endpoint: '/vulnerabilities/brute/',
+      impact: 'Possibilita ataques contínuos e distribuídos contra o serviço de login sem qualquer sinal de bloqueio de conta (Account Lockout) ou desafio CAPTCHA.',
+      aiAnalysis: 'O servidor aceitou 5 requisições com credenciais inválidas consecutivas com resposta imediata HTTP 200.'
+    },
+    'FIND-003': {
+      confidence: 96,
+      endpoint: '/vulnerabilities/sqli/',
+      impact: 'Vazamento da estrutura do banco de dados e mensagens de erro do MariaDB, facilitando a construção de vetores de injeção mais profundos.',
+      aiAnalysis: 'Mensagens de erro de sintaxe SQL expostas ao usuário final comprovam falta de tratamento de exceções na camada de banco de dados.'
+    },
+    'FIND-004': {
+      confidence: 99,
+      endpoint: '/vulnerabilities/sqli/',
+      impact: 'Extração integral de tabelas confidenciais (usuários, senhas, dados cadastrais) e possível manipulação de dados através de injeção SQL booleana.',
+      aiAnalysis: 'A query SQL concatena diretamente as entradas sem parametrização com PDO, permitindo alteração semântica com tautologias.'
+    },
+    'FIND-005': {
+      confidence: 92,
+      endpoint: '/vulnerabilities/xss_r/',
+      impact: 'Execução arbitrária de código JavaScript no navegador dos usuários, possibilitando roubo de cookies de sessão, keylogging e ataques de phishing direcionados.',
+      aiAnalysis: 'A aplicação reflete dados fornecidos pelo usuário no corpo da resposta HTML sem codificação de entidades sensível ao contexto.'
+    },
+    'FIND-006': {
+      confidence: 100,
+      endpoint: '/vulnerabilities/exec/',
+      impact: 'Execução Remota de Código (RCE) no servidor, permitindo que invasores obtenham controle da máquina, acessem arquivos confidenciais do sistema e façam pivoting.',
+      aiAnalysis: 'A funcionalidade utiliza shell_exec() diretamente sobre comandos concatenados sem sanitização ou uso de APIs seguras de sistema.'
+    },
+    'FIND-007': {
+      confidence: 100,
+      endpoint: '/',
+      impact: 'Sem uma política CSP, o navegador não possui restrições sobre a origem de scripts, amplificando drasticamente o impacto de ataques de XSS e injeções.',
+      aiAnalysis: 'O cabeçalho Content-Security-Policy está totalmente ausente nas respostas HTTP do servidor web.'
+    },
+    'FIND-008': {
+      confidence: 100,
+      endpoint: '/',
+      impact: 'A página pode ser incorporada em iframes de sites maliciosos para ludibriar o usuário e sequestrar cliques (ataques de Clickjacking).',
+      aiAnalysis: 'Ausência do cabeçalho X-Frame-Options e de diretivas frame-ancestors na resposta da aplicação.'
+    },
+    'FIND-009': {
+      confidence: 90,
+      endpoint: '/',
+      impact: 'Navegadores podem interpretar arquivos estáticos de texto ou imagem como executáveis JavaScript caso detectem código malicioso em seu interior.',
+      aiAnalysis: 'O cabeçalho defensivo X-Content-Type-Options com o valor nosniff não foi configurado.'
+    },
+    'FIND-010': {
+      confidence: 95,
+      endpoint: '/',
+      impact: 'Permite que invasores na mesma rede (Wi-Fi aberta) interceptem tráfego não criptografado através de SSL Stripping.',
+      aiAnalysis: 'Cabeçalho Strict-Transport-Security não encontrado nas respostas HTTP.'
+    },
+    'FIND-011': {
+      confidence: 100,
+      endpoint: '/',
+      impact: 'Exposição de versões exatas do Apache e PHP permite que atacantes pesquisem CVEs públicas e direcionem exploits conhecidos contra o servidor.',
+      aiAnalysis: 'Os cabeçalhos Server e X-Powered-By divulgam as versões internas do software em execução.'
+    }
+  };
+
+  const meta = metadataMap[finding.id] || {
+    confidence: 90,
+    endpoint: '/vulnerabilities/',
+    impact: 'Comportamento vulnerável identificado no alvo, expondo a aplicação a riscos operacionais e de conformidade.',
+    aiAnalysis: 'Achado diagnosticado pelo motor automatizado do SecureScan.'
+  };
+
+  return {
+    ...finding,
+    confidence: finding.confidence ?? meta.confidence,
+    endpoint: finding.endpoint ?? meta.endpoint,
+    impact: finding.impact ?? meta.impact,
+    aiAnalysis: finding.aiAnalysis ?? meta.aiAnalysis
+  };
+}
+
+/**
+ * Calcula a pontuação global de postura de segurança (0 a 100),
+ * refletindo os controles defensivos e a dificuldade de evasão no alvo.
+ */
+export function calculateSecurityScore(summary: ScanSummary, securityLevel: SecurityLevel = 'high'): number {
+  if (summary.total === 0) return 100;
+
+  // Pontuação base calibrada pelo nível de maturidade defensiva do ambiente
+  const levelBaseScore: Record<SecurityLevel, number> = {
+    low: 32,      // Low: Ausência de defesas, exploração direta e trivial (Risco Crítico)
+    medium: 58,   // Medium: Defesas parciais (blacklists, sleep) que sofreram bypass (Risco Moderado)
+    high: 80      // High: Defesas avançadas (anti-CSRF, regex, sessão) exigindo evasão complexa (Postura Elevada)
+  };
+
+  const base = levelBaseScore[securityLevel] ?? 60;
+  const penalty = (summary.critical * 2) + (summary.high * 1.5) + (summary.medium * 0.8) + (summary.low * 0.4);
+  const normalizedPenalty = Math.round((penalty / 15) * 6);
+
+  const finalScore = base - normalizedPenalty + 2;
+  return Math.max(15, Math.min(95, finalScore));
+}
+
+/**
+ * Resultado inicial demonstrativo para popular o Dashboard no primeiro acesso.
+ */
+export const INITIAL_SCAN_RESULT: ScanResult = {
+  targetUrl: 'http://192.168.100.165',
+  securityLevel: 'high',
+  timestamp: '15/09/2026 14:32',
+  durationSeconds: 32,
+  summary: {
+    total: 11,
+    critical: 2,
+    high: 2,
+    medium: 4,
+    low: 3,
+    safe: 0
+  },
+  score: 77,
+  findings: MOCK_FINDINGS_HIGH.map(enrichFinding),
+  aiExecutiveReport: MOCK_AI_REPORT_HIGH
+};
 
 /**
  * Dispara uma varredura real chamando o backend Python em http://localhost:5000/api/scan.
@@ -499,6 +636,12 @@ export async function runRealScan(
     }
 
     const data = await response.json();
+    if (data.findings && Array.isArray(data.findings)) {
+      data.findings = data.findings.map(enrichFinding);
+    }
+    if (!data.score && data.summary) {
+      data.score = calculateSecurityScore(data.summary, securityLevel);
+    }
     return data;
   } catch (err) {
     console.warn('Backend não disponível ou inacessível. Alternando para simulação:', err);
