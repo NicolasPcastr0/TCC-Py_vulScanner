@@ -1,4 +1,5 @@
 import type { Finding, ScanResult, ScanSummary, SecurityLevel } from '../types/scanner';
+import { jsPDF } from 'jspdf';
 
 /**
  * Dados para o nível LOW: Ausência de defesas e exploração direta/trivial.
@@ -686,6 +687,568 @@ export function exportToCsv(result: ScanResult): void {
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   triggerDownload(blob, filename);
+}
+
+function cleanText(str: string): string {
+  if (!str) return '';
+  return str
+    // Remove emojis e caracteres fora do Latin-1 básico
+    .replace(/[\u{1F300}-\u{1FAFF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F900}-\u{1F9FF}]/gu, '')
+    // Remove marcadores markdown de negrito e itálico
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    // Substitui crases por aspas simples
+    .replace(/`([^`]+)`/g, "'$1'")
+    .replace(/`/g, "'")
+    .trim();
+}
+
+function drawAiTable(
+  doc: jsPDF,
+  headers: string[],
+  rows: string[][],
+  margin: number,
+  contentWidth: number,
+  checkPageBreak: (needed: number) => void,
+  getY: () => number,
+  setY: (val: number) => void
+) {
+  let y = getY();
+  const colWidths = [28, 45, 52, 57]; // Total = 182mm (contentWidth)
+  const totalW = contentWidth;
+
+  checkPageBreak(14);
+  y = getY();
+
+  // Cabeçalho da Tabela
+  doc.setFillColor(30, 58, 138); // Azul Marinho Corporativo #1e3a8a
+  doc.roundedRect(margin, y, totalW, 6.5, 1, 1, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.2);
+  doc.setTextColor(255, 255, 255);
+
+  let curX = margin;
+  headers.forEach((h, i) => {
+    const text = cleanText(h);
+    const align = i === 0 ? 'center' : 'left';
+    const textX = i === 0 ? curX + colWidths[i] / 2 : curX + 2.5;
+    doc.text(text, textX, y + 4.5, { align });
+    curX += colWidths[i];
+  });
+
+  y += 6.5;
+
+  // Linhas da Tabela
+  rows.forEach((row, rowIdx) => {
+    const cleanCells = row.map((c) => cleanText(c));
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.8);
+
+    const col1Lines = doc.splitTextToSize(cleanCells[1] || '', colWidths[1] - 4);
+    const col2Lines = doc.splitTextToSize(cleanCells[2] || '', colWidths[2] - 4);
+    const col3Lines = doc.splitTextToSize(cleanCells[3] || '', colWidths[3] - 4);
+
+    const maxLines = Math.max(col1Lines.length, col2Lines.length, col3Lines.length, 1);
+    const rowHeight = Math.max(maxLines * 3.3 + 3.5, 6.5);
+
+    checkPageBreak(rowHeight);
+    y = getY();
+
+    // Fundo zebrado
+    if (rowIdx % 2 === 0) {
+      doc.setFillColor(255, 255, 255);
+    } else {
+      doc.setFillColor(248, 250, 252);
+    }
+    doc.rect(margin, y, totalW, rowHeight, 'F');
+
+    // Borda inferior
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.2);
+    doc.rect(margin, y, totalW, rowHeight, 'D');
+
+    let colX = margin;
+
+    // Coluna 0: Badge de Prioridade
+    const prioRaw = cleanCells[0] || '';
+    let badgeBg = [224, 242, 254];
+    let badgeTextCol = [3, 105, 161];
+    let badgeLabel = prioRaw.toUpperCase();
+
+    if (badgeLabel.includes('IMEDIATA') || badgeLabel.includes('CRITICA') || badgeLabel.includes('CRÍTICA')) {
+      badgeBg = [254, 226, 226];
+      badgeTextCol = [185, 28, 28];
+      badgeLabel = 'IMEDIATA';
+    } else if (badgeLabel.includes('ALTA')) {
+      badgeBg = [255, 237, 213];
+      badgeTextCol = [194, 65, 12];
+      badgeLabel = 'ALTA';
+    } else if (badgeLabel.includes('MEDIA') || badgeLabel.includes('MÉDIA')) {
+      badgeBg = [254, 249, 195];
+      badgeTextCol = [133, 77, 14];
+      badgeLabel = 'MÉDIA';
+    } else if (badgeLabel.includes('BAIXA')) {
+      badgeBg = [224, 242, 254];
+      badgeTextCol = [3, 105, 161];
+      badgeLabel = 'BAIXA';
+    }
+
+    const bW = colWidths[0] - 5;
+    const bH = 4.8;
+    const bX = colX + 2.5;
+    const bY = y + (rowHeight - bH) / 2;
+
+    doc.setFillColor(badgeBg[0], badgeBg[1], badgeBg[2]);
+    doc.roundedRect(bX, bY, bW, bH, 1, 1, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(badgeTextCol[0], badgeTextCol[1], badgeTextCol[2]);
+    doc.text(badgeLabel, bX + bW / 2, bY + 3.4, { align: 'center' });
+
+    colX += colWidths[0];
+
+    // Coluna 1: Vulnerabilidade
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.8);
+    doc.setTextColor(15, 23, 42);
+    doc.text(col1Lines, colX + 2, y + 3.6);
+    colX += colWidths[1];
+
+    // Coluna 2: Falha do Controle / Causa Raiz
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(51, 65, 85);
+    doc.text(col2Lines, colX + 2, y + 3.6);
+    colX += colWidths[2];
+
+    // Coluna 3: Solução Definitiva
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(6, 95, 70);
+    doc.text(col3Lines, colX + 2, y + 3.6);
+
+    y += rowHeight;
+    setY(y);
+  });
+
+  setY(y + 3);
+}
+
+/**
+ * Gera e realiza o download direto do relatório executivo completo em formato PDF (vetorial de alta fidelidade).
+ */
+export function exportToPdf(result: ScanResult): void {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const margin = 14;
+  const contentWidth = pageWidth - margin * 2; // 182mm
+  let y = margin;
+
+  const checkPageBreak = (neededHeight: number) => {
+    if (y + neededHeight > pageHeight - 18) {
+      doc.addPage();
+      y = margin + 5;
+    }
+  };
+
+  const getY = () => y;
+  const setY = (val: number) => {
+    y = val;
+  };
+
+  // 1. Cabeçalho Principal
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(30, 58, 138); // #1e3a8a
+  doc.text('SecureScan — Relatório Executivo de Segurança', margin, y + 4);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 116, 139); // #64748b
+  doc.text('Auditoria Automatizada de Aplicações Web • Trabalho de Conclusão de Curso (TCC)', margin, y + 9);
+
+  // Badge do Nível DVWA (Canto superior direito)
+  const badgeWidth = 42;
+  const badgeHeight = 7;
+  const badgeX = pageWidth - margin - badgeWidth;
+  doc.setFillColor(219, 234, 254); // #dbeafe
+  doc.roundedRect(badgeX, y, badgeWidth, badgeHeight, 2, 2, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(29, 78, 216); // #1d4ed8
+  doc.text(`NÍVEL DVWA: ${result.securityLevel.toUpperCase()}`, badgeX + badgeWidth / 2, y + 4.8, { align: 'center' });
+
+  // Linha divisória de destaque
+  y += 13;
+  doc.setDrawColor(37, 99, 235); // #2563eb
+  doc.setLineWidth(0.8);
+  doc.line(margin, y, pageWidth - margin, y);
+
+  // 2. Metadados do Scan
+  y += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Alvo Auditado: ${result.targetUrl}   |   Data da Análise: ${result.timestamp}   |   Duração: ${result.durationSeconds}s`, margin, y);
+
+  // 3. Grid dos 4 Cards Executivos (KPIs)
+  y += 4;
+  const cardGap = 3;
+  const cardWidth = (contentWidth - cardGap * 3) / 4;
+  const cardHeight = 15;
+
+  const kpis = [
+    { label: 'VULNERABILIDADES', value: String(result.summary.total), color: [15, 23, 42] },
+    { label: 'CRÍTICAS', value: String(result.summary.critical), color: [220, 38, 38] },
+    { label: 'ALTAS', value: String(result.summary.high), color: [234, 88, 12] },
+    { label: 'SCORE DE SEGURANÇA', value: `${result.score ?? 75}/100`, color: [22, 163, 74] }
+  ];
+
+  kpis.forEach((kpi, idx) => {
+    const kx = margin + idx * (cardWidth + cardGap);
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(kx, y, cardWidth, cardHeight, 1.5, 1.5, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(kpi.color[0], kpi.color[1], kpi.color[2]);
+    doc.text(kpi.value, kx + cardWidth / 2, y + 6.5, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(kpi.label, kx + cardWidth / 2, y + 11.5, { align: 'center' });
+  });
+
+  y += cardHeight + 7;
+
+  // 4. Seção de Vulnerabilidades
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`Vulnerabilidades Identificadas (${result.findings.length})`, margin, y);
+
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(margin, y + 2, pageWidth - margin, y + 2);
+  y += 5;
+
+  // Renderizar cada vulnerabilidade
+  result.findings.forEach((f, idx) => {
+    doc.setFont('courier', 'normal');
+    doc.setFontSize(7);
+    const evidenceLines = doc.splitTextToSize(f.evidence, contentWidth - 10);
+    const evidenceHeight = evidenceLines.length * 3.2 + 6;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    const recLines = doc.splitTextToSize(f.recommendation, contentWidth - 12);
+    const recHeight = recLines.length * 3.4 + 6;
+
+    const cardTotalHeight = 12 + evidenceHeight + recHeight + 3;
+    checkPageBreak(cardTotalHeight);
+
+    // Contorno do card
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(margin, y, contentWidth, cardTotalHeight - 2, 1.5, 1.5, 'FD');
+
+    // Título do achado
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`#${idx + 1} - ${f.test}`, margin + 3, y + 5);
+
+    // Badge de Severidade e Confiança
+    const sevColors: Record<string, { bg: number[]; text: number[] }> = {
+      critical: { bg: [254, 226, 226], text: [185, 28, 28] },
+      high: { bg: [255, 237, 213], text: [194, 65, 12] },
+      medium: { bg: [254, 249, 195], text: [133, 77, 14] },
+      low: { bg: [224, 242, 254], text: [3, 105, 161] },
+      safe: { bg: [220, 252, 231], text: [22, 101, 52] }
+    };
+    const c = sevColors[f.severity] || sevColors.low;
+    const sevLabel = `${f.severity.toUpperCase()} (${f.confidence ?? 94}% Confiança)`;
+    const sevPillWidth = 44;
+    const sevPillX = pageWidth - margin - sevPillWidth - 3;
+
+    doc.setFillColor(c.bg[0], c.bg[1], c.bg[2]);
+    doc.roundedRect(sevPillX, y + 1.5, sevPillWidth, 5.5, 1, 1, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.8);
+    doc.setTextColor(c.text[0], c.text[1], c.text[2]);
+    doc.text(sevLabel, sevPillX + sevPillWidth / 2, y + 5.2, { align: 'center' });
+
+    // OWASP & Endpoint
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Categoria: ${f.category} — ${f.name}   |   Endpoint: ${f.endpoint ?? '/'}`, margin + 3, y + 9.5);
+
+    // Bloco de Evidência
+    let subY = y + 11.5;
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(margin + 2.5, subY, contentWidth - 5, evidenceHeight, 1, 1, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.8);
+    doc.setTextColor(30, 41, 59);
+    doc.text('Evidência Técnica:', margin + 4, subY + 3.5);
+
+    doc.setFont('courier', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(51, 65, 85);
+    doc.text(evidenceLines, margin + 4, subY + 6.8);
+
+    // Bloco de Recomendação
+    subY += evidenceHeight + 1.5;
+    doc.setFillColor(236, 253, 245);
+    doc.roundedRect(margin + 2.5, subY, contentWidth - 5, recHeight, 1, 1, 'F');
+
+    // Faixa verde à esquerda
+    doc.setDrawColor(16, 185, 129);
+    doc.setLineWidth(0.8);
+    doc.line(margin + 2.5, subY, margin + 2.5, subY + recHeight);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.8);
+    doc.setTextColor(6, 95, 70);
+    doc.text('Recomendação de Mitigação: ', margin + 4.5, subY + 3.8);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.8);
+    doc.setTextColor(6, 95, 70);
+    doc.text(recLines, margin + 4.5, subY + 7);
+
+    y += cardTotalHeight;
+  });
+
+  // 5. Parecer Executivo de Inteligência Artificial (Google Gemini)
+  if (result.aiExecutiveReport) {
+    // Inicia a seção de IA em uma nova página dedicada
+    doc.addPage();
+    y = margin;
+
+    // Banner Corporativo da Camada de IA
+    doc.setFillColor(241, 245, 249);
+    doc.setDrawColor(37, 99, 235);
+    doc.setLineWidth(0.6);
+    doc.roundedRect(margin, y, contentWidth, 12, 1.5, 1.5, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(30, 58, 138);
+    doc.text('Parecer Técnico Executivo — Inteligência Artificial (Google Gemini)', margin + 4, y + 5.2);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Síntese cognitiva de postura defensiva, encadeamento de falhas e matriz de priorização', margin + 4, y + 9.5);
+
+    y += 16;
+
+    const lines = result.aiExecutiveReport.split('\n');
+    let tableHeaders: string[] = [];
+    let tableRows: string[][] = [];
+    let inTable = false;
+
+    const flushTable = () => {
+      if (tableHeaders.length > 0 && tableRows.length > 0) {
+        drawAiTable(doc, tableHeaders, tableRows, margin, contentWidth, checkPageBreak, getY, setY);
+      }
+      tableHeaders = [];
+      tableRows = [];
+      inTable = false;
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+      const rawLine = lines[i].trim();
+
+      // Processamento de Tabelas Markdown (| ... |)
+      if (rawLine.startsWith('|') && rawLine.endsWith('|')) {
+        if (rawLine.includes('---')) {
+          continue; // Pula linha divisória da tabela markdown
+        }
+        const cells = rawLine
+          .slice(1, -1)
+          .split('|')
+          .map((c) => c.trim());
+
+        if (!inTable) {
+          tableHeaders = cells;
+          inTable = true;
+        } else {
+          tableRows.push(cells);
+        }
+        continue;
+      } else if (inTable) {
+        flushTable();
+      }
+
+      if (!rawLine) continue;
+
+      // Subtítulos: ### ...
+      if (rawLine.startsWith('#')) {
+        checkPageBreak(12);
+        const title = cleanText(rawLine.replace(/^#+\s*/, ''));
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor(30, 58, 138);
+        doc.text(title, margin, y + 4);
+
+        doc.setDrawColor(203, 213, 225);
+        doc.setLineWidth(0.3);
+        doc.line(margin, y + 5.8, margin + contentWidth, y + 5.8);
+
+        y += 9.5;
+        continue;
+      }
+
+      // Tópicos com negrito no início: - **Nível de Risco...**: valor
+      const bulletMatch = rawLine.match(/^-\s*\*\*(.*?)\*\*:?\s*(.*)$/);
+      if (bulletMatch) {
+        const label = cleanText(bulletMatch[1]);
+        const body = cleanText(bulletMatch[2]);
+
+        if (label.toLowerCase().includes('nível de risco') || label.toLowerCase().includes('nivel de risco')) {
+          checkPageBreak(9);
+
+          doc.setFillColor(254, 226, 226); // Alerta vermelho suave
+          doc.setDrawColor(248, 113, 113);
+          doc.setLineWidth(0.3);
+          doc.roundedRect(margin, y, contentWidth, 7, 1, 1, 'FD');
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7.5);
+          doc.setTextColor(185, 28, 28);
+          doc.text(`• Nível de Risco Geral: ${body}`, margin + 3, y + 4.8);
+
+          y += 9.5;
+          continue;
+        }
+
+        if (label.toLowerCase().includes('resumo executivo')) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7.2);
+          const bodyLines = doc.splitTextToSize(body, contentWidth - 8);
+          const cardH = bodyLines.length * 3.3 + 7.5;
+
+          checkPageBreak(cardH);
+
+          doc.setFillColor(248, 250, 252);
+          doc.setDrawColor(203, 213, 225);
+          doc.setLineWidth(0.2);
+          doc.roundedRect(margin, y, contentWidth, cardH, 1.5, 1.5, 'FD');
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7.5);
+          doc.setTextColor(30, 41, 59);
+          doc.text('Resumo Executivo:', margin + 3, y + 4);
+
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7);
+          doc.setTextColor(51, 65, 85);
+          doc.text(bodyLines, margin + 3, y + 7.5);
+
+          y += cardH + 4;
+          continue;
+        }
+
+        // Tópico genérico com marcador
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.2);
+        const genLines = doc.splitTextToSize(`• ${label}: ${body}`, contentWidth - 4);
+        const gH = genLines.length * 3.3 + 2;
+
+        checkPageBreak(gH);
+        doc.setTextColor(51, 65, 85);
+        doc.text(genLines, margin + 2, y + 3.5);
+        y += gH;
+        continue;
+      }
+
+      // Lista numerada: 1. **Título**: Descrição
+      const numMatch = rawLine.match(/^(\d+)\.\s*\*\*(.*?)\*\*:?\s*(.*)$/);
+      if (numMatch) {
+        const num = numMatch[1];
+        const itemTitle = cleanText(numMatch[2]);
+        const itemDesc = cleanText(numMatch[3]);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        const descLines = doc.splitTextToSize(itemDesc, contentWidth - 8);
+        const itemH = descLines.length * 3.3 + 7;
+
+        checkPageBreak(itemH);
+
+        // Card para cada vetor técnico
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.2);
+        doc.roundedRect(margin, y, contentWidth, itemH, 1, 1, 'FD');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.2);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`${num}. ${itemTitle}`, margin + 3, y + 3.8);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.8);
+        doc.setTextColor(71, 85, 105);
+        doc.text(descLines, margin + 3, y + 7.2);
+
+        y += itemH + 2.5;
+        continue;
+      }
+
+      // Parágrafo comum
+      const cleanLine = cleanText(rawLine);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.2);
+      const pLines = doc.splitTextToSize(cleanLine, contentWidth - 4);
+      const pH = pLines.length * 3.3 + 2;
+
+      checkPageBreak(pH);
+      doc.setTextColor(51, 65, 85);
+      doc.text(pLines, margin + 2, y + 3.5);
+      y += pH;
+    }
+
+    // Se a tabela estiver no final do arquivo
+    flushTable();
+  }
+
+  // 6. Rodapé em todas as páginas (numeração de páginas)
+  const totalPages = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.2);
+    doc.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10);
+
+    doc.text(
+      `SecureScan • Relatório de Auditoria Automatizada (${result.securityLevel.toUpperCase()}) • TCC Cibersegurança`,
+      margin,
+      pageHeight - 6
+    );
+    doc.text(`Página ${p} de ${totalPages}`, pageWidth - margin, pageHeight - 6, { align: 'right' });
+  }
+
+  // 7. Download direto do arquivo PDF
+  const filename = `relatorio-securescan-${result.securityLevel.toLowerCase()}-${Date.now()}.pdf`;
+  doc.save(filename);
 }
 
 function triggerDownload(blob: Blob, filename: string) {

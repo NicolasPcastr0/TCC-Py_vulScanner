@@ -13,7 +13,7 @@ import {
   Filter
 } from 'lucide-react';
 import type { Finding, ScanResult, Severity } from '../types/scanner';
-import { exportToJson, exportToCsv } from '../services/scanService';
+import { exportToJson, exportToCsv, exportToPdf } from '../services/scanService';
 
 interface FindingsListViewProps {
   scanResult: ScanResult;
@@ -253,6 +253,15 @@ export const FindingsListView: React.FC<FindingsListViewProps> = ({
           </div>
 
           <div className="export-actions-row">
+            <button
+              type="button"
+              className="btn-export-subtle"
+              onClick={() => exportToPdf(scanResult)}
+              title="Exportar relatório completo em PDF"
+            >
+              <Download size={14} />
+              <span>PDF</span>
+            </button>
             <button
               type="button"
               className="btn-export-subtle"

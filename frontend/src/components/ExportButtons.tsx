@@ -1,7 +1,7 @@
 import React from 'react';
 import { FileJson, FileSpreadsheet, Printer } from 'lucide-react';
 import type { ScanResult } from '../types/scanner';
-import { exportToJson, exportToCsv } from '../services/scanService';
+import { exportToJson, exportToCsv, exportToPdf } from '../services/scanService';
 
 interface ExportButtonsProps {
   result: ScanResult;
@@ -9,7 +9,7 @@ interface ExportButtonsProps {
 
 export const ExportButtons: React.FC<ExportButtonsProps> = ({ result }) => {
   const handlePrint = () => {
-    window.print();
+    exportToPdf(result);
   };
 
   return (
