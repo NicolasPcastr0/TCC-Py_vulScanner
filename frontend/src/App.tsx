@@ -5,7 +5,7 @@ import { NewScanView } from './components/NewScanView';
 import { FindingsListView } from './components/FindingsListView';
 import { FindingDetailView } from './components/FindingDetailView';
 import { AIExecutiveReport } from './components/AIExecutiveReport';
-import type { Finding, ModuleKey, ScanResult, SecurityLevel, TabType } from './types/scanner';
+import type { Finding, ModuleKey, ScanResult, SecurityLevel, TabType, TargetPlatform } from './types/scanner';
 import { INITIAL_SCAN_RESULT, runMockScan, runRealScan } from './services/scanService';
 import { X, Sparkles, Shield, Key } from 'lucide-react';
 
@@ -18,6 +18,7 @@ export const App: React.FC = () => {
   // Estados de entrada do Scanner
   const [url, setUrl] = useState<string>('http://192.168.100.165');
   const [securityLevel, setSecurityLevel] = useState<SecurityLevel>('high');
+  const [targetPlatform, setTargetPlatform] = useState<TargetPlatform>('dvwa');
   const [isRealBackend, setIsRealBackend] = useState<boolean>(false);
 
   // Estados de progresso
@@ -34,15 +35,25 @@ export const App: React.FC = () => {
     try {
       let result: ScanResult;
       if (isRealBackend) {
-        result = await runRealScan(url, securityLevel, (step, percent) => {
-          setCurrentStep(step);
-          setProgressPercent(percent);
-        });
+        result = await runRealScan(
+          url,
+          securityLevel,
+          (step, percent) => {
+            setCurrentStep(step);
+            setProgressPercent(percent);
+          },
+          targetPlatform
+        );
       } else {
-        result = await runMockScan(url, securityLevel, (step, percent) => {
-          setCurrentStep(step);
-          setProgressPercent(percent);
-        });
+        result = await runMockScan(
+          url,
+          securityLevel,
+          (step, percent) => {
+            setCurrentStep(step);
+            setProgressPercent(percent);
+          },
+          targetPlatform
+        );
       }
 
       // Filtra os achados pelos módulos selecionados
@@ -103,6 +114,8 @@ export const App: React.FC = () => {
             setUrl={setUrl}
             securityLevel={securityLevel}
             setSecurityLevel={setSecurityLevel}
+            targetPlatform={targetPlatform}
+            setTargetPlatform={setTargetPlatform}
             isRealBackend={isRealBackend}
             setIsRealBackend={setIsRealBackend}
             isLoading={isLoading}
@@ -131,29 +144,28 @@ export const App: React.FC = () => {
           </>
         )}
 
-        {/* Tela: Configurações */}
+        {/* Tela 5: Configurações do Sistema */}
         {activeTab === 'settings' && (
-          <div className="settings-view-layout">
+          <div className="settings-layout">
             <header className="view-header">
               <div>
-                <h1 className="view-title">Configurações do Sistema</h1>
+                <h1 className="view-title">Configurações do SecureScan</h1>
                 <p className="view-subtitle">
-                  Parâmetros operacionais do SecureScan e integração com IA.
+                  Parâmetros de conexão com IA e ambiente de homologação.
                 </p>
               </div>
             </header>
 
-            <div className="settings-cards-grid">
+            <div className="settings-grid">
               <div className="dash-card settings-card">
                 <div className="settings-header-row">
                   <Key size={18} className="text-primary-blue" />
-                  <h3 className="card-heading">Chave de API do Google Gemini</h3>
+                  <h3 className="card-heading">API Key da Inteligência Artificial</h3>
                 </div>
                 <p className="settings-desc">
-                  Utilizada para gerar sínteses cognitivas executivas, matrizes de risco e
-                  recomendações de remediação.
+                  Chave utilizada para alimentar o motor interpretativo Google Gemini.
                 </p>
-                <div className="input-with-icon">
+                <div className="settings-input-group">
                   <input
                     type="password"
                     value="AIzaSyA********************"
@@ -170,7 +182,7 @@ export const App: React.FC = () => {
                   <h3 className="card-heading">Alvo Padrão do Laboratório TCC</h3>
                 </div>
                 <p className="settings-desc">
-                  Endereço IP configurado para a máquina virtual do DVWA em container Docker.
+                  Endereço IP configurado para a máquina virtual do laboratório (DVWA / WordPress em Docker).
                 </p>
                 <input
                   type="text"

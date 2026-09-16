@@ -457,6 +457,7 @@ body {
 .bar-high { background: linear-gradient(180deg, #f97316 0%, #c2410c 100%); }
 .bar-medium { background: linear-gradient(180deg, #eab308 0%, #a16207 100%); }
 .bar-low { background: linear-gradient(180deg, #06b6d4 0%, #0e7490 100%); }
+.bar-safe { background: linear-gradient(180deg, #10b981 0%, #047857 100%); }
 
 .bar-label {
   font-size: 0.775rem;
@@ -544,6 +545,7 @@ body {
 .dot-high { background-color: #f97316; }
 .dot-medium { background-color: #eab308; }
 .dot-low { background-color: #06b6d4; }
+.dot-safe { background-color: #10b981; }
 
 .legend-name {
   color: var(--text-secondary);

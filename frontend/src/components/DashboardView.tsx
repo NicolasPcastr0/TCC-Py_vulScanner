@@ -23,7 +23,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const { summary, targetUrl, timestamp, durationSeconds, score = 72 } = scanResult;
 
   // Cálculo da altura relativa das barras de distribuição (máximo de 140px)
-  const maxBarValue = Math.max(summary.critical, summary.high, summary.medium, summary.low, 1);
+  const maxBarValue = Math.max(summary.critical, summary.high, summary.medium, summary.low, summary.safe || 0, 1);
   const getBarHeight = (val: number) => {
     return Math.max(Math.round((val / maxBarValue) * 110), 12);
   };
@@ -165,6 +165,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 />
                 <span className="bar-label">Baixas</span>
               </div>
+
+              {/* Barra Segura */}
+              <div className="bar-column">
+                <div className="bar-value-label">{summary.safe || 0}</div>
+                <div
+                  className="bar-fill bar-safe"
+                  style={{ height: `${getBarHeight(summary.safe || 0)}px` }}
+                />
+                <span className="bar-label">Seguras</span>
+              </div>
             </div>
           </div>
         </div>
@@ -227,6 +237,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <span className="legend-name">Baixas</span>
                 <span className="legend-count">{summary.low}</span>
               </div>
+              <div className="score-legend-item">
+                <span className="legend-dot dot-safe" />
+                <span className="legend-name">Seguras</span>
+                <span className="legend-count">{summary.safe || 0}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -239,7 +254,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <Globe size={22} />
           </div>
           <div className="last-scan-info">
-            <h3 className="last-scan-target">DVWA (Damn Vulnerable Web Application)</h3>
+            <h3 className="last-scan-target">
+              {scanResult.targetPlatform === 'wordpress' || targetUrl.includes(':8080') || scanResult.securityLevel?.toLowerCase().includes('wordpress')
+                ? 'WordPress (CMS Corporativo)'
+                : 'DVWA (Damn Vulnerable Web Application)'}
+            </h3>
             <span className="last-scan-url">{targetUrl}</span>
             <div className="last-scan-meta">
               <span>{timestamp}</span>

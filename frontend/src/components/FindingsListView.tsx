@@ -35,7 +35,10 @@ export const FindingsListView: React.FC<FindingsListViewProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const filteredFindings = findings.filter((f) => {
-    const matchesSeverity = selectedSeverity === 'all' || f.severity === selectedSeverity;
+    const isSafe = f.severity === 'safe' || f.status === 'not_detected';
+    const matchesSeverity =
+      selectedSeverity === 'all' ||
+      (selectedSeverity === 'safe' ? isSafe : f.severity === selectedSeverity);
     const matchesSearch =
       searchQuery === '' ||
       f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -100,7 +103,11 @@ export const FindingsListView: React.FC<FindingsListViewProps> = ({
           </div>
           <div className="target-details-col">
             <div className="target-name-row">
-              <h2 className="target-heading">DVWA</h2>
+              <h2 className="target-heading">
+                {scanResult.targetPlatform === 'wordpress' || targetUrl.includes(':8080') || scanResult.securityLevel?.toLowerCase().includes('wordpress')
+                  ? 'WordPress CMS'
+                  : 'DVWA'}
+              </h2>
               <span className="target-sub-url">{targetUrl}</span>
             </div>
             <div className="target-meta-row">
@@ -115,7 +122,11 @@ export const FindingsListView: React.FC<FindingsListViewProps> = ({
               </div>
               <span className="meta-separator">•</span>
               <div className="meta-item">
-                <span className="meta-item-label">Nível DVWA:</span>
+                <span className="meta-item-label">
+                  {scanResult.targetPlatform === 'wordpress' || targetUrl.includes(':8080') || scanResult.securityLevel?.toLowerCase().includes('wordpress')
+                    ? 'Ambiente:'
+                    : 'Nível DVWA:'}
+                </span>
                 <span className="meta-item-value uppercase-badge">{scanResult.securityLevel}</span>
               </div>
             </div>
@@ -181,6 +192,14 @@ export const FindingsListView: React.FC<FindingsListViewProps> = ({
 
           <span className="pill-dot dot-low" />
           <span className="pill-mini-text">Baixas: <strong>{summary.low}</strong></span>
+
+          {(summary.safe !== undefined && summary.safe > 0) && (
+            <>
+              <span className="pill-mini-separator">|</span>
+              <span className="pill-dot dot-safe" />
+              <span className="pill-mini-text">Seguras: <strong>{summary.safe}</strong></span>
+            </>
+          )}
         </div>
 
         {/* Botão de Relatório Geral de IA */}
@@ -237,6 +256,15 @@ export const FindingsListView: React.FC<FindingsListViewProps> = ({
             >
               Baixas ({summary.low})
             </button>
+            {(summary.safe !== undefined && summary.safe > 0) && (
+              <button
+                type="button"
+                className={`filter-btn btn-sev-safe ${selectedSeverity === 'safe' ? 'active' : ''}`}
+                onClick={() => setSelectedSeverity('safe')}
+              >
+                Seguras ({summary.safe})
+              </button>
+            )}
             <input
               type="text"
               placeholder="Buscar vulnerabilidade..."

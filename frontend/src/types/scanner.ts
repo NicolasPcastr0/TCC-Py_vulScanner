@@ -32,9 +32,12 @@ export interface ScanSummary {
   safe: number;
 }
 
+export type TargetPlatform = 'dvwa' | 'wordpress';
+
 export interface ScanResult {
   targetUrl: string;
-  securityLevel: SecurityLevel;
+  securityLevel: string;
+  targetPlatform?: TargetPlatform;
   timestamp: string;
   durationSeconds: number;
   summary: ScanSummary;

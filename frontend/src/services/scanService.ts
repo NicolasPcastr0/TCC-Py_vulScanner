@@ -1,4 +1,4 @@
-import type { Finding, ScanResult, ScanSummary, SecurityLevel } from '../types/scanner';
+import type { Finding, ScanResult, ScanSummary, SecurityLevel, TargetPlatform } from '../types/scanner';
 import { jsPDF } from 'jspdf';
 
 /**
@@ -410,6 +410,163 @@ export const MOCK_AI_REPORT_HIGH = `### 1. Visão Geral da Postura de Segurança
 | 🟡 MÉDIA | Ausência de CSP & X-Frame-Options | Cabeçalhos HTTP defensivos ausentes (A05) | Adicionar CSP e X-Frame-Options no servidor |
 | 🔵 BAIXA | Exposição de Versão (Banner) | Exposição de Apache e PHP nos cabeçalhos | ServerTokens Prod e expose_php = Off |`;
 
+/**
+ * Dados de auditoria específicos para o alvo WordPress (CMS Corporativo).
+ */
+export const MOCK_FINDINGS_WORDPRESS: Finding[] = [
+  {
+    id: 'FIND-WP-001',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Enumeração de Usuários via REST API (/wp-json/wp/v2/users)',
+    status: 'detected',
+    severity: 'medium',
+    confidence: 100,
+    endpoint: '/wp-json/wp/v2/users',
+    evidence: "O endpoint público /wp-json/wp/v2/users retornou status HTTP 200 e expôs os dados do usuário administrador: [{'id': 1, 'name': 'admin', 'slug': 'admin'}]. A divulgação da lista de usuários viabiliza ataques direcionados de força bruta.",
+    recommendation: "Restringir o acesso anônimo à REST API adicionando um filtro 'rest_authentication_errors' no functions.php ou instalando plugins de segurança (ex: Wordfence ou Disable REST API)."
+  },
+  {
+    id: 'FIND-WP-002',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Vetor de Ataque XML-RPC Ativo (/xmlrpc.php)',
+    status: 'detected',
+    severity: 'medium',
+    confidence: 100,
+    endpoint: '/xmlrpc.php',
+    evidence: "O arquivo /xmlrpc.php está acessível e respondeu com 'XML-RPC server accepts POST requests only'. O protocolo legado XML-RPC aceita métodos como system.multicall e wp.getUsersBlogs, sendo comumente explorado para amplificação de força bruta e ataques de reflexão/DDoS.",
+    recommendation: "Desativar o XML-RPC bloqueando o acesso ao arquivo xmlrpc.php nas configurações do servidor web (.htaccess ou Nginx) ou utilizando o filtro add_filter('xmlrpc_enabled', '__return_false')."
+  },
+  {
+    id: 'FIND-WP-003',
+    category: 'A07:2021',
+    name: 'Identification and Authentication Failures',
+    test: 'Força Bruta no Login (Ausência de Rate Limiting & Account Lockout)',
+    status: 'detected',
+    severity: 'high',
+    confidence: 97,
+    endpoint: '/wp-login.php',
+    evidence: "Foram realizadas 5 tentativas inválidas consecutivas de autenticação em /wp-login.php. Todas responderam imediatamente com HTTP 200 sem atraso progressivo (tarpitting), sem bloqueio temporário de IP e sem exigência de CAPTCHA.",
+    recommendation: "Implementar uma política estrita de Account Lockout através de plugins como 'Limit Login Attempts Reloaded' ou WAF, e exigir Autenticação em Dois Fatores (2FA) para perfis administrativos."
+  },
+  {
+    id: 'FIND-WP-004',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Vazamento de Versão do WordPress (Information Disclosure)',
+    status: 'detected',
+    severity: 'low',
+    confidence: 100,
+    endpoint: '/readme.html',
+    evidence: "A versão exata da instalação do WordPress foi identificada através do arquivo público /readme.html e da meta tag 'generator' no cabeçalho HTML. Essa exposição facilita o mapeamento de CVEs conhecidas contra o ambiente.",
+    recommendation: "Remover os arquivos estáticos /readme.html e /license.txt da raiz do servidor, e adicionar remove_action('wp_head', 'wp_generator'); no functions.php do tema ativo."
+  },
+  {
+    id: 'FIND-WP-005',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Ausência de Content-Security-Policy (CSP)',
+    status: 'detected',
+    severity: 'medium',
+    confidence: 100,
+    endpoint: '/',
+    evidence: "O cabeçalho Content-Security-Policy não foi retornado pela aplicação. A ausência de CSP impede que o navegador restrinja a origem de scripts dinâmicos, ampliando a superfície de impacto caso plugins de terceiros sofram XSS.",
+    recommendation: "Definir uma política restritiva de CSP no servidor Apache/Nginx (ex: Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline';)."
+  },
+  {
+    id: 'FIND-WP-006',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Ausência de Proteção contra Clickjacking (X-Frame-Options)',
+    status: 'detected',
+    severity: 'medium',
+    confidence: 100,
+    endpoint: '/',
+    evidence: "O cabeçalho X-Frame-Options não foi configurado nas páginas públicas do site. A aplicação pode ser incorporada em iframes externos por páginas maliciosas para ataques de UI Redressing.",
+    recommendation: "Adicionar o cabeçalho 'X-Frame-Options: SAMEORIGIN' na configuração do servidor web para todas as rotas públicas."
+  },
+  {
+    id: 'FIND-WP-007',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Ausência de Strict-Transport-Security (HSTS)',
+    status: 'detected',
+    severity: 'low',
+    confidence: 95,
+    endpoint: '/',
+    evidence: "O cabeçalho Strict-Transport-Security (HSTS) não foi identificado. O tráfego do WordPress na porta 8080 opera em HTTP não criptografado, expondo cookies e credenciais na rede local.",
+    recommendation: "Migrar o site para HTTPS e configurar o cabeçalho 'Strict-Transport-Security: max-age=31536000; includeSubDomains'."
+  },
+  {
+    id: 'FIND-WP-008',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Ausência de X-Content-Type-Options (MIME Sniffing)',
+    status: 'detected',
+    severity: 'low',
+    confidence: 90,
+    endpoint: '/',
+    evidence: "O cabeçalho 'X-Content-Type-Options: nosniff' não foi enviado pelo servidor Apache. Navegadores podem executar arquivos estáticos maliciosos contornando extensões nominais.",
+    recommendation: "Configurar o cabeçalho 'X-Content-Type-Options: nosniff' nas diretivas do Apache."
+  },
+  {
+    id: 'FIND-WP-009',
+    category: 'A05:2021',
+    name: 'Security Misconfiguration',
+    test: 'Vazamento de Informações do Servidor (Banner Disclosure)',
+    status: 'detected',
+    severity: 'low',
+    confidence: 100,
+    endpoint: '/',
+    evidence: "Foram identificados cabeçalhos de resposta HTTP que divulgam tecnologias internas: Server: 'Apache/2.4.54 (Debian)', X-Powered-By: 'PHP/8.1.2'.",
+    recommendation: "Ocultar versões no servidor web (ServerTokens Prod e ServerSignature Off no Apache; expose_php = Off no php.ini)."
+  },
+  {
+    id: 'FIND-WP-010',
+    category: 'A03:2021',
+    name: 'Injection',
+    test: 'Resiliência a SQL Injection no Core (WordPress wpdb)',
+    status: 'not_detected',
+    severity: 'safe',
+    confidence: 95,
+    endpoint: '/?s=',
+    evidence: "Tentativas de injeção de caracteres SQL (aspas simples, comentários '#' e operadores booleanos) na busca interna foram parametrizadas de forma segura pelo Core do WordPress via Prepared Statements.",
+    recommendation: "Manter boas práticas no desenvolvimento de temas e plugins personalizados, utilizando obrigatoriamente a função $wpdb->prepare() para consultas dinâmicas."
+  },
+  {
+    id: 'FIND-WP-011',
+    category: 'A03:2021',
+    name: 'Injection',
+    test: 'Codificação Contextual contra XSS no Tema Padrão',
+    status: 'not_detected',
+    severity: 'safe',
+    confidence: 92,
+    endpoint: '/?s=',
+    evidence: "Payloads de teste de Cross-Site Scripting (<script>, <img onerror>) injetados no parâmetro de busca foram neutralizados com sucesso pelas funções de escape contextual (esc_html / esc_attr) do template oficial.",
+    recommendation: "Continuar validando e codificando qualquer entrada dinâmica exibida no DOM em temas ou extensões customizadas."
+  }
+];
+
+export const MOCK_AI_REPORT_WORDPRESS = `### 1. Visão Geral da Postura de Segurança (WordPress CMS)
+- **Nível de Risco Geral:** MÉDIO-ALTO (Superfície de Ataque Exposta em CMS Corporativo)
+- **Resumo Executivo:** O alvo analisado é uma instalação do **WordPress (v6.x)** em ambiente de produção Apache/MariaDB. O núcleo do WordPress demonstrou **excelente maturidade e resiliência contra injeções diretas (SQLi e XSS)**, operando com consultas parametrizadas ($wpdb->prepare()) e sanitização contextual no tema padrão. Por outro lado, a instalação apresenta **graves configurações incorretas de segurança corporativa (OWASP A05:2021 e A07:2021)**: enumeração pública de logins administrativos via REST API, protocolo legado XML-RPC ativo para amplificação de ataques e tolerância ilimitada a tentativas automatizadas de força bruta no formulário /wp-login.php.
+
+### 2. Cenário de Encadeamento de Ataque (Kill Chain Corporativo)
+1. **Reconhecimento & Enumeração:** O atacante consulta o endpoint aberto \`/wp-json/wp/v2/users\` e obtém o nome de usuário legítimo (\`admin\`) sem disparar nenhum alarme ou barreira de proteção.
+2. **Amplificação de Força Bruta:** Utilizando o serviço legado \`/xmlrpc.php\` (método system.multicall) ou diretamente no formulário \`/wp-login.php\`, o invasor automatiza milhares de combinações de senha sem sofrer bloqueio de IP, atraso artificial ou desafio CAPTCHA.
+3. **Tomada de Controle Administrativo (Account Takeover):** Uma vez que a credencial é obtida, o atacante acessa o painel \`/wp-admin/\`, onde pode instalar plugins maliciosos ou injetar webshells PHP, alcançando Execução Remota de Código (RCE) e controle total do servidor web.
+
+### 3. Matriz de Priorização das Correções
+| Prioridade | Vulnerabilidade | Causa Raiz do CMS | Solução Definitiva da Indústria |
+|---|---|---|---|
+| 🔴 IMEDIATA | Força Bruta no /wp-login.php | Ausência nativa de Account Lockout no Core | Instalar plugin Limit Login Attempts / 2FA ou WAF |
+| 🟠 ALTA | Exposição de Usuários na REST API | Endpoint /wp-json/wp/v2/users público | Restringir REST API para usuários autenticados |
+| 🟠 ALTA | Vetor XML-RPC Ativo | Arquivo /xmlrpc.php legado exposto | Desativar xmlrpc.php no .htaccess ou filtro PHP |
+| 🟡 MÉDIA | Ausência de CSP & X-Frame-Options | Cabeçalhos defensivos não configurados | Injetar cabeçalhos CSP e SAMEORIGIN no Apache |
+| 🟡 MÉDIA | Ausência de HSTS | Tráfego rodando em HTTP puro (porta 8080) | Habilitar HTTPS e Strict-Transport-Security |
+| 🔵 BAIXA | Vazamento de Versão (readme.html) | Arquivo estático exposto na raiz do site | Deletar readme.html e remover meta generator |`;
+
 export const SCAN_STEPS = [
   'Conectando e autenticando no alvo...',
   'Auditando Cabeçalhos de Segurança HTTP e Misconfigurations (A05)...',
@@ -421,18 +578,33 @@ export const SCAN_STEPS = [
 ];
 
 /**
- * Simula a execução do scanner com feedback progressivo adaptado ao nível selecionado (low, medium ou high).
+ * Simula a execução do scanner com feedback progressivo adaptado ao alvo (DVWA ou WordPress).
  */
 export async function runMockScan(
   targetUrl: string,
   securityLevel: SecurityLevel,
-  onProgress?: (step: string, percentage: number) => void
+  onProgress?: (step: string, percentage: number) => void,
+  targetPlatform?: TargetPlatform
 ): Promise<ScanResult> {
+  const isWordPress = targetPlatform === 'wordpress' || targetUrl.includes(':8080');
+
+  const steps = isWordPress
+    ? [
+        'Conectando ao WordPress CMS na porta 8080...',
+        'Auditando Cabeçalhos HTTP e Exposição de Versão (A05)...',
+        'Verificando Enumeração de Usuários na REST API (/wp-json)...',
+        'Auditando Vetor de Amplificação XML-RPC (/xmlrpc.php)...',
+        'Testando Força Bruta e Tolerância a Lockout (/wp-login.php)...',
+        'Verificando Proteções Parametrizadas do Core ($wpdb)...',
+        'Processando achados na Camada de Inteligência Artificial...'
+      ]
+    : SCAN_STEPS;
+
   const startTime = Date.now();
 
-  for (let i = 0; i < SCAN_STEPS.length; i++) {
-    const stepText = SCAN_STEPS[i];
-    const percent = Math.round(((i + 1) / SCAN_STEPS.length) * 100);
+  for (let i = 0; i < steps.length; i++) {
+    const stepText = steps[i];
+    const percent = Math.round(((i + 1) / steps.length) * 100);
     if (onProgress) {
       onProgress(stepText, percent);
     }
@@ -442,36 +614,49 @@ export async function runMockScan(
 
   const durationSeconds = Math.round((Date.now() - startTime) / 1000);
 
-  // Seleciona o conjunto de dados de acordo com o nível configurado
+  // Seleciona o conjunto de dados de acordo com o alvo e nível
   let rawFindings = MOCK_FINDINGS_LOW;
   let aiReport = MOCK_AI_REPORT_LOW;
+  let resultLevel = securityLevel.toUpperCase();
+  let resultScore = 29;
 
-  if (securityLevel === 'medium') {
+  if (isWordPress) {
+    rawFindings = MOCK_FINDINGS_WORDPRESS;
+    aiReport = MOCK_AI_REPORT_WORDPRESS;
+    resultLevel = 'WordPress CMS';
+    resultScore = 68;
+  } else if (securityLevel === 'medium') {
     rawFindings = MOCK_FINDINGS_MEDIUM;
     aiReport = MOCK_AI_REPORT_MEDIUM;
+    resultScore = 55;
   } else if (securityLevel === 'high') {
     rawFindings = MOCK_FINDINGS_HIGH;
     aiReport = MOCK_AI_REPORT_HIGH;
+    resultScore = 77;
   }
 
   const findings = rawFindings.map(enrichFinding);
 
+  const vulnFindings = findings.filter((f) => f.status === 'detected' && f.severity !== 'safe');
+  const safeFindings = findings.filter((f) => f.status === 'not_detected' || f.severity === 'safe');
+
   const summary = {
-    total: findings.length,
-    critical: findings.filter((f) => f.severity === 'critical').length,
-    high: findings.filter((f) => f.severity === 'high').length,
-    medium: findings.filter((f) => f.severity === 'medium').length,
-    low: findings.filter((f) => f.severity === 'low').length,
-    safe: findings.filter((f) => f.status === 'not_detected' || f.severity === 'safe').length
+    total: vulnFindings.length,
+    critical: vulnFindings.filter((f) => f.severity === 'critical').length,
+    high: vulnFindings.filter((f) => f.severity === 'high').length,
+    medium: vulnFindings.filter((f) => f.severity === 'medium').length,
+    low: vulnFindings.filter((f) => f.severity === 'low').length,
+    safe: safeFindings.length
   };
 
   return {
     targetUrl,
-    securityLevel,
+    securityLevel: resultLevel,
+    targetPlatform: isWordPress ? 'wordpress' : 'dvwa',
     timestamp: new Date().toLocaleString('pt-BR'),
     durationSeconds: Math.max(durationSeconds, 4),
     summary,
-    score: calculateSecurityScore(summary, securityLevel),
+    score: resultScore,
     findings,
     aiExecutiveReport: aiReport
   };
@@ -570,17 +755,21 @@ export function enrichFinding(finding: Finding): Finding {
  * Calcula a pontuação global de postura de segurança (0 a 100),
  * refletindo os controles defensivos e a dificuldade de evasão no alvo.
  */
-export function calculateSecurityScore(summary: ScanSummary, securityLevel: SecurityLevel = 'high'): number {
+export function calculateSecurityScore(summary: ScanSummary, securityLevel: string = 'high'): number {
   if (summary.total === 0) return 100;
 
+  if (securityLevel.toLowerCase().includes('wordpress')) {
+    return 68;
+  }
+
   // Pontuação base calibrada pelo nível de maturidade defensiva do ambiente
-  const levelBaseScore: Record<SecurityLevel, number> = {
+  const levelBaseScore: Record<string, number> = {
     low: 32,      // Low: Ausência de defesas, exploração direta e trivial (Risco Crítico)
     medium: 58,   // Medium: Defesas parciais (blacklists, sleep) que sofreram bypass (Risco Moderado)
     high: 80      // High: Defesas avançadas (anti-CSRF, regex, sessão) exigindo evasão complexa (Postura Elevada)
   };
 
-  const base = levelBaseScore[securityLevel] ?? 60;
+  const base = levelBaseScore[securityLevel.toLowerCase()] ?? 60;
   const penalty = (summary.critical * 2) + (summary.high * 1.5) + (summary.medium * 0.8) + (summary.low * 0.4);
   const normalizedPenalty = Math.round((penalty / 15) * 6);
 
@@ -616,10 +805,20 @@ export const INITIAL_SCAN_RESULT: ScanResult = {
 export async function runRealScan(
   targetUrl: string,
   securityLevel: SecurityLevel,
-  onProgress?: (step: string, percentage: number) => void
+  onProgress?: (step: string, percentage: number) => void,
+  targetPlatform?: TargetPlatform
 ): Promise<ScanResult> {
+  const isWordPress = targetPlatform === 'wordpress' || targetUrl.includes(':8080');
+
   try {
-    if (onProgress) onProgress(`Iniciando varredura real no nível ${securityLevel.toUpperCase()}...`, 20);
+    if (onProgress) {
+      onProgress(
+        isWordPress
+          ? 'Iniciando varredura real no WordPress CMS (:8080)...'
+          : `Iniciando varredura real no DVWA (Nível ${securityLevel.toUpperCase()})...`,
+        20
+      );
+    }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 90000);
@@ -627,7 +826,11 @@ export async function runRealScan(
     const response = await fetch('http://localhost:5000/api/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ target_url: targetUrl, security_level: securityLevel }),
+      body: JSON.stringify({
+        target_url: targetUrl,
+        security_level: securityLevel,
+        target_type: isWordPress ? 'wordpress' : 'dvwa'
+      }),
       signal: controller.signal
     });
     clearTimeout(timeoutId);
@@ -641,12 +844,15 @@ export async function runRealScan(
       data.findings = data.findings.map(enrichFinding);
     }
     if (!data.score && data.summary) {
-      data.score = calculateSecurityScore(data.summary, securityLevel);
+      data.score = calculateSecurityScore(data.summary, isWordPress ? 'WordPress CMS' : securityLevel);
+    }
+    if (!data.targetPlatform) {
+      data.targetPlatform = isWordPress ? 'wordpress' : 'dvwa';
     }
     return data;
   } catch (err) {
     console.warn('Backend não disponível ou inacessível. Alternando para simulação:', err);
-    return runMockScan(targetUrl, securityLevel, onProgress);
+    return runMockScan(targetUrl, securityLevel, onProgress, targetPlatform);
   }
 }
 
@@ -871,8 +1077,10 @@ export function exportToPdf(result: ScanResult): void {
   doc.setTextColor(100, 116, 139); // #64748b
   doc.text('Auditoria Automatizada de Aplicações Web • Trabalho de Conclusão de Curso (TCC)', margin, y + 9);
 
-  // Badge do Nível DVWA (Canto superior direito)
-  const badgeWidth = 42;
+  // Badge do Alvo (Canto superior direito)
+  const isWp = result.targetPlatform === 'wordpress' || result.securityLevel.toLowerCase().includes('wordpress');
+  const badgeLabel = isWp ? 'WORDPRESS CMS' : `NÍVEL DVWA: ${result.securityLevel.toUpperCase()}`;
+  const badgeWidth = isWp ? 38 : 44;
   const badgeHeight = 7;
   const badgeX = pageWidth - margin - badgeWidth;
   doc.setFillColor(219, 234, 254); // #dbeafe
@@ -880,7 +1088,7 @@ export function exportToPdf(result: ScanResult): void {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(29, 78, 216); // #1d4ed8
-  doc.text(`NÍVEL DVWA: ${result.securityLevel.toUpperCase()}`, badgeX + badgeWidth / 2, y + 4.8, { align: 'center' });
+  doc.text(badgeLabel, badgeX + badgeWidth / 2, y + 4.8, { align: 'center' });
 
   // Linha divisória de destaque
   y += 13;
@@ -1239,7 +1447,7 @@ export function exportToPdf(result: ScanResult): void {
     doc.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10);
 
     doc.text(
-      `SecureScan • Relatório de Auditoria Automatizada (${result.securityLevel.toUpperCase()}) • TCC Cibersegurança`,
+      `SecureScan • Relatório de Auditoria Automatizada (${isWp ? 'WordPress CMS' : result.securityLevel.toUpperCase()}) • TCC Cibersegurança`,
       margin,
       pageHeight - 6
     );

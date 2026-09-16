@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Globe,
   ShieldAlert,
+  Shield,
   CheckSquare,
   Square,
   ArrowRight,
@@ -9,13 +10,15 @@ import {
   Sparkles,
   Loader2
 } from 'lucide-react';
-import type { SecurityLevel, ModuleKey } from '../types/scanner';
+import type { SecurityLevel, ModuleKey, TargetPlatform } from '../types/scanner';
 
 interface NewScanViewProps {
   url: string;
   setUrl: (url: string) => void;
   securityLevel: SecurityLevel;
   setSecurityLevel: (lvl: SecurityLevel) => void;
+  targetPlatform: TargetPlatform;
+  setTargetPlatform: (p: TargetPlatform) => void;
   isRealBackend: boolean;
   setIsRealBackend: (real: boolean) => void;
   isLoading: boolean;
@@ -39,6 +42,8 @@ export const NewScanView: React.FC<NewScanViewProps> = ({
   setUrl,
   securityLevel,
   setSecurityLevel,
+  targetPlatform,
+  setTargetPlatform,
   isRealBackend,
   setIsRealBackend,
   isLoading,
@@ -120,6 +125,42 @@ export const NewScanView: React.FC<NewScanViewProps> = ({
             <h2 className="form-section-title">1. Informações da aplicação</h2>
           </div>
 
+          {/* Seletor de Perfil do Alvo (DVWA vs WordPress) */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label className="form-label">Plataforma / Perfil do Alvo</label>
+            <div className="execution-mode-toggle" style={{ maxWidth: '440px' }}>
+              <button
+                type="button"
+                className={`mode-pill ${targetPlatform === 'dvwa' ? 'active' : ''}`}
+                onClick={() => {
+                  setTargetPlatform('dvwa');
+                  setUrl('http://192.168.100.165');
+                }}
+                disabled={isLoading}
+              >
+                <Shield size={14} />
+                <span>DVWA (Lab Didático)</span>
+              </button>
+              <button
+                type="button"
+                className={`mode-pill ${targetPlatform === 'wordpress' ? 'active' : ''}`}
+                onClick={() => {
+                  setTargetPlatform('wordpress');
+                  setUrl('http://192.168.100.165:8080');
+                }}
+                disabled={isLoading}
+              >
+                <Globe size={14} />
+                <span>WordPress (CMS Corporativo)</span>
+              </button>
+            </div>
+            <span className="input-helper-text">
+              {targetPlatform === 'dvwa'
+                ? 'Laboratório com níveis de segurança configuráveis (Low, Medium, High).'
+                : 'CMS WordPress em produção na porta 8080 (REST API, XML-RPC, wp-login).'}
+            </span>
+          </div>
+
           <div className="form-grid-inputs">
             {/* Input URL */}
             <div className="form-group flex-2">
@@ -138,30 +179,46 @@ export const NewScanView: React.FC<NewScanViewProps> = ({
                 />
               </div>
               <span className="input-helper-text">
-                Alvo padrão do laboratório TCC: <code>http://192.168.100.165</code> (DVWA em Docker)
+                {targetPlatform === 'dvwa' ? (
+                  <>Alvo padrão: <code>http://192.168.100.165</code> (DVWA em Docker)</>
+                ) : (
+                  <>Alvo WordPress: <code>http://192.168.100.165:8080</code> (CMS em Docker)</>
+                )}
               </span>
             </div>
 
-            {/* Seletor de Nível de Segurança do DVWA */}
+            {/* Seletor de Nível de Segurança ou Perfil do CMS */}
             <div className="form-group flex-1">
               <label htmlFor="security-level" className="form-label">
-                Nível de Defesa (DVWA)
+                {targetPlatform === 'dvwa' ? 'Nível de Defesa (DVWA)' : 'Perfil de Defesa (CMS)'}
               </label>
-              <div className="select-wrapper">
-                <select
-                  id="security-level"
-                  className="input-select"
-                  value={securityLevel}
-                  onChange={(e) => setSecurityLevel(e.target.value as SecurityLevel)}
-                  disabled={isLoading}
-                >
-                  <option value="low">Low (Trivial / Sem defesas)</option>
-                  <option value="medium">Medium (Defesas parciais / Evasão)</option>
-                  <option value="high">High (Defesas avançadas / Evasão complexa)</option>
-                </select>
-              </div>
+              {targetPlatform === 'dvwa' ? (
+                <div className="select-wrapper">
+                  <select
+                    id="security-level"
+                    className="input-select"
+                    value={securityLevel}
+                    onChange={(e) => setSecurityLevel(e.target.value as SecurityLevel)}
+                    disabled={isLoading}
+                  >
+                    <option value="low">Low (Trivial / Sem defesas)</option>
+                    <option value="medium">Medium (Defesas parciais / Evasão)</option>
+                    <option value="high">High (Defesas avançadas / Evasão complexa)</option>
+                  </select>
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  className="input-text"
+                  value="WordPress v6.x (Apache / MariaDB)"
+                  readOnly
+                  style={{ cursor: 'default', color: '#93c5fd', fontWeight: 600 }}
+                />
+              )}
               <span className="input-helper-text">
-                Define a robustez das proteções e os vetores de evasão utilizados.
+                {targetPlatform === 'dvwa'
+                  ? 'Define a robustez das proteções e os vetores de evasão utilizados.'
+                  : 'Auditoria de cabeçalhos, REST API, XML-RPC e formulário wp-login.'}
               </span>
             </div>
 
