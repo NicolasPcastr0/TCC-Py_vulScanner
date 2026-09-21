@@ -10,7 +10,7 @@ import {
 import type { ScanResult } from '../types/scanner';
 
 interface DashboardViewProps {
-  scanResult: ScanResult;
+  scanResult: ScanResult | null;
   onNavigateToNewScan: () => void;
   onNavigateToFindings: () => void;
 }
@@ -20,18 +20,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigateToNewScan,
   onNavigateToFindings
 }) => {
-  const { summary, targetUrl, timestamp, durationSeconds, score = 72 } = scanResult;
+  const summary = scanResult?.summary || { total: 0, critical: 0, high: 0, medium: 0, low: 0, safe: 0 };
+  const targetUrl = scanResult?.targetUrl || '';
+  const timestamp = scanResult?.timestamp || '';
+  const durationSeconds = scanResult?.durationSeconds || 0;
+  const score = scanResult?.score ?? null;
 
   // Cálculo da altura relativa das barras de distribuição (máximo de 140px)
   const maxBarValue = Math.max(summary.critical, summary.high, summary.medium, summary.low, summary.safe || 0, 1);
   const getBarHeight = (val: number) => {
+    if (!scanResult) return 4;
     return Math.max(Math.round((val / maxBarValue) * 110), 12);
   };
 
   // Cálculo do perímetro circular do Donut de Score (raio = 54 -> circunf = 2 * PI * 54 = ~339.29)
   const radius = 54;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (score / 100) * circumference;
+  const strokeDashoffset = score !== null ? circumference - (score / 100) * circumference : circumference;
 
   return (
     <div className="dashboard-layout">
@@ -91,7 +96,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <CheckCircle2 size={18} />
             </div>
           </div>
-          <div className="metric-card-number">{summary.total + 13}</div>
+          <div className="metric-card-number">{scanResult ? summary.total + 13 : 0}</div>
         </div>
 
         {/* Card 4: Score de Segurança */}
@@ -103,7 +108,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
           <div className="metric-card-number text-success">
-            {score} <span className="text-muted-number">/100</span>
+            {score !== null ? (
+              <>{score} <span className="text-muted-number">/100</span></>
+            ) : (
+              <span style={{ color: 'var(--text-muted)' }}>--</span>
+            )}
           </div>
         </div>
       </section>
@@ -210,8 +219,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 />
               </svg>
               <div className="score-donut-center">
-                <span className="score-donut-value">{score}</span>
-                <span className="score-donut-max">/100</span>
+                <span className="score-donut-value">{score !== null ? score : '--'}</span>
+                <span className="score-donut-max">{score !== null ? '/100' : 'Aguardando'}</span>
               </div>
             </div>
 
@@ -253,34 +262,55 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="last-scan-icon">
             <Globe size={22} />
           </div>
-          <div className="last-scan-info">
-            <h3 className="last-scan-target">
-              {scanResult.targetPlatform === 'wordpress' || targetUrl.includes(':8080') || scanResult.securityLevel?.toLowerCase().includes('wordpress')
-                ? 'WordPress (CMS Corporativo)'
-                : 'DVWA (Damn Vulnerable Web Application)'}
-            </h3>
-            <span className="last-scan-url">{targetUrl}</span>
-            <div className="last-scan-meta">
-              <span>{timestamp}</span>
-              <span className="meta-separator">•</span>
-              <span>{summary.total + 13} testes executados</span>
-              <span className="meta-separator">•</span>
-              <span className="text-critical">{summary.total} vulnerabilidades encontradas</span>
-              <span className="meta-separator">•</span>
-              <span>Duração: {durationSeconds}s</span>
+          {scanResult ? (
+            <div className="last-scan-info">
+              <h3 className="last-scan-target">
+                {scanResult.targetPlatform === 'wordpress' || targetUrl.includes(':8080') || scanResult.securityLevel?.toLowerCase().includes('wordpress')
+                  ? 'WordPress (CMS Corporativo)'
+                  : 'DVWA (Damn Vulnerable Web Application)'}
+              </h3>
+              <span className="last-scan-url">{targetUrl}</span>
+              <div className="last-scan-meta">
+                <span>{timestamp}</span>
+                <span className="meta-separator">•</span>
+                <span>{summary.total + 13} testes executados</span>
+                <span className="meta-separator">•</span>
+                <span className="text-critical">{summary.total} vulnerabilidades encontradas</span>
+                <span className="meta-separator">•</span>
+                <span>Duração: {durationSeconds}s</span>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="last-scan-info">
+              <h3 className="last-scan-target">Nenhuma análise executada ainda</h3>
+              <span className="last-scan-url">Configure seu alvo e inicie uma varredura para visualizar as métricas</span>
+              <div className="last-scan-meta">
+                <span>Pronto para iniciar</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="last-scan-actions">
-          <button
-            type="button"
-            className="btn-primary-action"
-            onClick={onNavigateToFindings}
-          >
-            <span>Ver resultado</span>
-            <ArrowRight size={16} />
-          </button>
+          {scanResult ? (
+            <button
+              type="button"
+              className="btn-primary-action"
+              onClick={onNavigateToFindings}
+            >
+              <span>Ver resultado</span>
+              <ArrowRight size={16} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn-primary-action"
+              onClick={onNavigateToNewScan}
+            >
+              <span>Iniciar análise</span>
+              <ArrowRight size={16} />
+            </button>
+          )}
         </div>
       </section>
     </div>

@@ -6,13 +6,13 @@ import { FindingsListView } from './components/FindingsListView';
 import { FindingDetailView } from './components/FindingDetailView';
 import { AIExecutiveReport } from './components/AIExecutiveReport';
 import type { Finding, ModuleKey, ScanResult, SecurityLevel, TabType, TargetPlatform } from './types/scanner';
-import { INITIAL_SCAN_RESULT, runMockScan, runRealScan } from './services/scanService';
+import { runMockScan, runRealScan } from './services/scanService';
 import { X, Sparkles, Shield, Key } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
-  const [scanResult, setScanResult] = useState<ScanResult>(INITIAL_SCAN_RESULT);
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [showAiModal, setShowAiModal] = useState<boolean>(false);
 
   // Estados de entrada do Scanner
@@ -93,7 +93,7 @@ export const App: React.FC = () => {
       <Sidebar
         activeTab={activeTab}
         onSelectTab={handleSelectTab}
-        findingsCount={scanResult.summary.total}
+        findingsCount={scanResult ? scanResult.summary.total : 0}
       />
 
       {/* 2. Área Central de Conteúdo Dinâmico */}
@@ -139,6 +139,7 @@ export const App: React.FC = () => {
                 onBack={() => handleSelectTab('dashboard')}
                 onSelectFinding={(f) => setSelectedFinding(f)}
                 onOpenAiReport={() => setShowAiModal(true)}
+                onNavigateToNewScan={() => handleSelectTab('new-scan')}
               />
             )}
           </>
@@ -215,7 +216,7 @@ export const App: React.FC = () => {
             </div>
 
             <div className="modal-body-scroll">
-              <AIExecutiveReport reportText={scanResult.aiExecutiveReport} />
+              <AIExecutiveReport reportText={scanResult?.aiExecutiveReport} />
             </div>
           </div>
         </div>

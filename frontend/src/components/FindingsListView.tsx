@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   ArrowLeft,
+  ArrowRight,
   Globe,
   ChevronRight,
   AlertTriangle,
@@ -16,18 +17,78 @@ import type { Finding, ScanResult, Severity } from '../types/scanner';
 import { exportToJson, exportToCsv, exportToPdf } from '../services/scanService';
 
 interface FindingsListViewProps {
-  scanResult: ScanResult;
+  scanResult: ScanResult | null;
   onBack: () => void;
   onSelectFinding: (finding: Finding) => void;
   onOpenAiReport: () => void;
+  onNavigateToNewScan?: () => void;
 }
 
 export const FindingsListView: React.FC<FindingsListViewProps> = ({
   scanResult,
   onBack,
   onSelectFinding,
-  onOpenAiReport
+  onOpenAiReport,
+  onNavigateToNewScan
 }) => {
+  if (!scanResult) {
+    return (
+      <div className="findings-list-layout">
+        <header className="results-header-bar">
+          <button type="button" className="btn-back-link" onClick={onBack}>
+            <ArrowLeft size={16} />
+            <span>Voltar ao Dashboard</span>
+          </button>
+          <h1 className="results-main-title">Resultado da análise</h1>
+        </header>
+
+        <div
+          className="dash-card"
+          style={{
+            padding: '3.5rem 2rem',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: '1.5rem'
+          }}
+        >
+          <div
+            style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              background: 'rgba(59, 130, 246, 0.1)',
+              border: '1px solid rgba(59, 130, 246, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#60a5fa',
+              marginBottom: '1.25rem'
+            }}
+          >
+            <ShieldAlert size={32} />
+          </div>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc', marginBottom: '0.5rem' }}>
+            Nenhuma análise executada ainda
+          </h2>
+          <p style={{ color: '#94a3b8', fontSize: '0.9rem', maxWidth: '480px', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+            Nenhum resultado foi gerado nesta sessão. Acesse a aba <strong>Nova análise</strong> para configurar seu alvo (DVWA ou WordPress) e iniciar a varredura.
+          </p>
+          <button
+            type="button"
+            className="btn-primary-action"
+            onClick={onNavigateToNewScan || onBack}
+          >
+            <span>Iniciar nova análise</span>
+            <ArrowRight size={16} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const { targetUrl, timestamp, durationSeconds, summary, findings, score = 72 } = scanResult;
 
   // Filtro por severidade
