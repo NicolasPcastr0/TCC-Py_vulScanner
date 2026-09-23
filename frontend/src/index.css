@@ -103,11 +103,10 @@ body {
   width: 38px;
   height: 38px;
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+  background-color: var(--primary-blue);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.35);
   color: #fff;
 }
 
@@ -153,14 +152,14 @@ body {
 }
 
 .nav-button.active {
-  background: linear-gradient(90deg, rgba(37, 99, 235, 0.22) 0%, rgba(37, 99, 235, 0.08) 100%);
-  border-color: rgba(59, 130, 246, 0.35);
-  color: #60a5fa;
+  background-color: var(--bg-surface);
+  border-color: var(--border-card);
+  color: #fff;
   font-weight: 600;
 }
 
 .nav-button.active .nav-icon {
-  color: #60a5fa;
+  color: var(--primary-blue);
 }
 
 .nav-badge {
@@ -240,7 +239,7 @@ body {
   width: 100%;
   padding: 2rem 2.75rem;
   overflow-y: auto;
-  background: radial-gradient(circle at 80% 0%, rgba(30, 58, 138, 0.08) 0%, transparent 60%);
+  background-color: var(--bg-app);
 }
 
 /* ==========================================================
@@ -270,13 +269,13 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.4rem 0.85rem;
-  background-color: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 0.35rem 0.8rem;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-card);
   border-radius: 9999px;
   font-size: 0.825rem;
   font-weight: 500;
-  color: #34d399;
+  color: var(--text-secondary);
 }
 
 .status-indicator-dot {
@@ -284,7 +283,6 @@ body {
   height: 8px;
   border-radius: 50%;
   background-color: #10b981;
-  box-shadow: 0 0 8px #10b981;
 }
 
 /* ==========================================================
@@ -453,11 +451,11 @@ body {
   transition: height 0.4s ease;
 }
 
-.bar-critical { background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%); }
-.bar-high { background: linear-gradient(180deg, #f97316 0%, #c2410c 100%); }
-.bar-medium { background: linear-gradient(180deg, #eab308 0%, #a16207 100%); }
-.bar-low { background: linear-gradient(180deg, #06b6d4 0%, #0e7490 100%); }
-.bar-safe { background: linear-gradient(180deg, #10b981 0%, #047857 100%); }
+.bar-critical { background-color: #ef4444; }
+.bar-high { background-color: #f97316; }
+.bar-medium { background-color: #eab308; }
+.bar-low { background-color: #06b6d4; }
+.bar-safe { background-color: #10b981; }
 
 .bar-label {
   font-size: 0.775rem;
@@ -620,12 +618,10 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.25);
 }
 
 .btn-primary-action:hover {
   background-color: var(--primary-blue-hover);
-  transform: translateY(-1px);
 }
 
 /* ==========================================================
@@ -801,8 +797,8 @@ body {
 }
 
 .module-select-card.selected {
-  border-color: rgba(59, 130, 246, 0.6);
-  background: linear-gradient(180deg, rgba(37, 99, 235, 0.12) 0%, rgba(37, 99, 235, 0.04) 100%);
+  border-color: var(--primary-blue);
+  background-color: var(--bg-surface);
 }
 
 .module-select-card.disabled {
@@ -901,7 +897,7 @@ body {
 
 .progress-fill-bar {
   height: 100%;
-  background: linear-gradient(90deg, #2563eb, #38bdf8);
+  background-color: var(--primary-blue);
   border-radius: 9999px;
   transition: width 0.3s ease;
 }
@@ -916,7 +912,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.65rem;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background-color: var(--primary-blue);
   color: #fff;
   border: none;
   padding: 0.85rem 1.85rem;
@@ -924,14 +920,11 @@ body {
   font-size: 0.975rem;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.35);
   transition: all 0.2s ease;
 }
 
 .btn-start-scan:hover:not(:disabled) {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+  background-color: var(--primary-blue-hover);
 }
 
 .btn-start-scan:disabled {
@@ -1124,9 +1117,9 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(59, 130, 246, 0.1));
-  border: 1px solid rgba(59, 130, 246, 0.4);
-  color: #60a5fa;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-card);
+  color: var(--text-primary);
   padding: 0.55rem 1rem;
   border-radius: var(--radius-md);
   font-size: 0.85rem;
@@ -1136,9 +1129,9 @@ body {
 }
 
 .btn-ai-executive-trigger:hover {
-  background: rgba(37, 99, 235, 0.3);
-  border-color: #3b82f6;
-  color: #fff;
+  background-color: var(--bg-card-hover);
+  border-color: var(--border-hover);
+  color: var(--primary-blue);
 }
 
 /* 5.1 LISTA DE VULNERABILIDADES */
@@ -1509,8 +1502,8 @@ body {
 
 /* CARD DE IA */
 .ai-detail-card {
-  border-color: rgba(59, 130, 246, 0.35);
-  background: linear-gradient(180deg, #0e1726 0%, #0c1422 100%);
+  border-color: var(--border-card);
+  background-color: var(--bg-card);
 }
 
 .ai-card-title-group {
