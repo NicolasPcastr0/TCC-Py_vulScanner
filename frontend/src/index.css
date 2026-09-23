@@ -1610,16 +1610,18 @@ body {
 /* ==========================================================
    7. CONFIGURAÇÕES
    ========================================================== */
+.settings-layout,
 .settings-view-layout {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
 }
 
+.settings-grid,
 .settings-cards-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .settings-card {
