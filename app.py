@@ -2,7 +2,7 @@ import json
 import os
 import sys
 import mimetypes
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse
 
 # Assegura que o diretório raiz está no PYTHONPATH
@@ -152,26 +152,34 @@ class SecureScanAPIHandler(SimpleHTTPRequestHandler):
                     "aiExecutiveReport": ai_report
                 }
 
+                response_bytes = json.dumps(response_data, ensure_ascii=False).encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(response_bytes)))
+                self.send_header("Connection", "close")
                 self.end_headers()
-                self.wfile.write(json.dumps(response_data, ensure_ascii=False).encode("utf-8"))
+                self.wfile.write(response_bytes)
 
             except Exception as err:
                 print(f"[API ERROR] Erro durante o scan: {err}")
+                err_bytes = json.dumps({"error": str(err)}, ensure_ascii=False).encode("utf-8")
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(err_bytes)))
+                self.send_header("Connection", "close")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": str(err)}, ensure_ascii=False).encode("utf-8"))
+                self.wfile.write(err_bytes)
 
         else:
             self.send_response(404)
+            self.send_header("Content-Length", "0")
+            self.send_header("Connection", "close")
             self.end_headers()
 
 
 def run_server(port=5000):
     server_address = ("", port)
-    httpd = HTTPServer(server_address, SecureScanAPIHandler)
+    httpd = ThreadingHTTPServer(server_address, SecureScanAPIHandler)
     print("=" * 60)
     print(f"      SECURESCAN WEB SERVER INICIADO EM http://localhost:{port}")
     print("=" * 60)

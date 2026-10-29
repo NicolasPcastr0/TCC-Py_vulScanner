@@ -46,21 +46,21 @@ class AIInterpreter:
 
         prompt = build_interpretation_prompt(findings)
 
-        # 1. Tenta utilizar o OpenRouter (Modelos gratuitos: Llama 3.3, DeepSeek, Gemini)
+        # 1. Tenta utilizar a API nativa do Google Gemini (IA principal do TCC)
+        if self.gemini_key:
+            try:
+                print("[*] Consultando camada de IA via Google Gemini API...")
+                return self._call_gemini(prompt)
+            except Exception as e:
+                print(f"[!] Erro no Gemini: {e}. Tentando provedores alternativos...")
+
+        # 2. Tenta utilizar o OpenRouter
         if self.openrouter_key:
             try:
                 print("[*] Consultando camada de IA via OpenRouter...")
                 return self._call_openrouter(prompt)
             except Exception as e:
                 print(f"[!] Erro no OpenRouter: {e}. Tentando outros provedores...")
-
-        # 2. Tenta utilizar a API nativa do Google Gemini
-        if self.gemini_key:
-            try:
-                print("[*] Consultando camada de IA via Google Gemini API...")
-                return self._call_gemini(prompt)
-            except Exception as e:
-                print(f"[!] Erro no Gemini: {e}. Tentando fallback...")
 
         # 3. Tenta utilizar a API nativa da OpenAI
         if self.openai_key:
@@ -73,65 +73,14 @@ class AIInterpreter:
         # 4. Modo de Demonstração / Fallback Acadêmico caso nenhuma chave esteja disponível
         return self._generate_fallback_report(findings)
 
-    def _call_openrouter(self, prompt: str) -> str:
-        """
-        Executa chamada à API do OpenRouter com fallback automático entre modelos gratuitos de ponta.
-        """
-        url = "https://openrouter.ai/api/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {self.openrouter_key}",
-            "HTTP-Referer": "https://github.com/NicolasPcastr0/TCC-Py_vulScanner",
-            "X-Title": "SecureScan - TCC Vulnerability Scanner",
-            "Content-Type": "application/json"
-        }
-
-        # Modelos gratuitos robustos e com excelente suporte a língua portuguesa
-        models = [
-            "minimax/minimax-m3:free",
-            "google/gemma-4-31b-it:free",
-            "nvidia/nemotron-3-super-120b-a12b:free",
-            "inclusionai/ling-3.0-flash-fin:free",
-        ]
-
-        last_error = None
-        for model in models:
-            payload = {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt}
-                ],
-                "temperature": 0.3,
-                "max_tokens": 3000
-            }
-
-            try:
-                response = requests.post(url, json=payload, headers=headers, timeout=35)
-                if response.status_code == 200:
-                    data = response.json()
-                    choices = data.get("choices", [])
-                    if choices:
-                        content = choices[0].get("message", {}).get("content", "").strip()
-                        # Validação de integridade: garante que a resposta é completa e não degenerou
-                        if content and len(content) > 350 and "não não não" not in content:
-                            print(f"[+] Análise gerada com sucesso via OpenRouter ({model})!\n")
-                            return content
-
-                last_error = f"Modelo OpenRouter '{model}' retornou HTTP {response.status_code}: {response.text}"
-            except requests.RequestException as e:
-                last_error = f"Conexão/Timeout no modelo OpenRouter '{model}': {e}"
-
-        raise RuntimeError(f"Todos os modelos do OpenRouter falharam. Último erro: {last_error}")
-
     def _call_gemini(self, prompt: str) -> str:
         """
-        Executa chamada à API REST do Google Gemini com fallback entre modelos.
+        Executa chamada à API REST do Google Gemini com fallback e retentativa em picos de tráfego.
         """
+        import time
+
         candidate_models = [
-            "gemini-2.5-flash-lite",
-            "gemini-3.6-flash",
-            "gemini-3.5-flash",
-            "gemini-flash-latest"
+            "gemini-3.8-flash"
         ]
 
         last_error = None
@@ -151,22 +100,77 @@ class AIInterpreter:
 
         for model_name in candidate_models:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.gemini_key}"
-            try:
-                response = requests.post(url, json=payload, headers=headers, timeout=15)
-                if response.status_code == 200:
-                    data = response.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        parts = candidates[0].get("content", {}).get("parts", [])
-                        if parts:
-                            print(f"[+] Análise gerada com sucesso via Gemini ({model_name})!\n")
-                            return parts[0].get("text", "").strip()
+            for attempt in range(2):
+                try:
+                    response = requests.post(url, json=payload, headers=headers, timeout=12)
+                    if response.status_code == 200:
+                        data = response.json()
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            parts = candidates[0].get("content", {}).get("parts", [])
+                            if parts:
+                                print(f"[+] Análise gerada com sucesso via Google Gemini ({model_name})!\n")
+                                return parts[0].get("text", "").strip()
 
-                last_error = f"Modelo '{model_name}' retornou HTTP {response.status_code}: {response.text}"
-            except requests.RequestException as e:
-                last_error = f"Timeout/Conexão no modelo '{model_name}': {e}"
+                    if response.status_code == 503 and attempt == 0:
+                        time.sleep(1)
+                        continue
+
+                    last_error = f"Modelo '{model_name}' retornou HTTP {response.status_code}: {response.text[:200]}"
+                except requests.RequestException as e:
+                    last_error = f"Timeout/Conexão no modelo '{model_name}': {e}"
+                    if attempt == 0:
+                        time.sleep(1)
 
         raise RuntimeError(f"Todos os modelos do Gemini falharam. Último erro: {last_error}")
+
+    def _call_openrouter(self, prompt: str) -> str:
+        """
+        Executa chamada à API do OpenRouter com fallback automático entre modelos gratuitos.
+        """
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.openrouter_key}",
+            "HTTP-Referer": "https://github.com/NicolasPcastr0/TCC-Py_vulScanner",
+            "X-Title": "SecureScan - TCC Vulnerability Scanner",
+            "Content-Type": "application/json"
+        }
+
+        models = [
+            "nvidia/nemotron-3-ultra-550b-a55b:free",
+            "google/gemma-4-26b-a4b-it:free",
+            "nvidia/nemotron-3.5-lightning:free",
+        ]
+
+        last_error = None
+        for model in models:
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.3,
+                "max_tokens": 3000
+            }
+
+            try:
+                response = requests.post(url, json=payload, headers=headers, timeout=25)
+                if response.status_code == 200:
+                    data = response.json()
+                    choices = data.get("choices", [])
+                    if choices:
+                        raw_content = choices[0].get("message", {}).get("content")
+                        content = raw_content.strip() if isinstance(raw_content, str) else ""
+                        if content and len(content) > 350 and "não não não" not in content:
+                            print(f"[+] Análise gerada com sucesso via OpenRouter ({model})!\n")
+                            return content
+
+                last_error = f"Modelo OpenRouter '{model}' retornou HTTP {response.status_code}: {response.text[:200]}"
+            except requests.RequestException as e:
+                last_error = f"Conexão/Timeout no modelo OpenRouter '{model}': {e}"
+
+        raise RuntimeError(f"Todos os modelos do OpenRouter falharam. Último erro: {last_error}")
 
     def _call_openai(self, prompt: str) -> str:
         """
